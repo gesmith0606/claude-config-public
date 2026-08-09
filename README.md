@@ -90,6 +90,33 @@ Need different permissions or env on one machine? Drop a gitignored `settings.lo
 `settings.json` — it deep-merges over the tracked config without forking it. Keep machine-specific
 *paths* in `machine.json`, machine-specific *harness settings* in `settings.local.json`.
 
+## Public mirror
+
+This repo (`origin`, **private**) keeps the full history. A **squashed, single-commit public
+mirror** lives at [`gesmith0606/claude-config-public`](https://github.com/gesmith0606/claude-config-public)
+on the `public` remote. History is deliberately *not* shared — early commits carry personal and
+employer detail that was later scrubbed, and squashing is what keeps it out of the public tree.
+
+Refresh the mirror after landing changes on `main`:
+
+```sh
+git checkout public-main
+git checkout main -- .        # take main's tree wholesale
+git add -A && git commit -m "Sync public snapshot"
+git push public public-main:main
+git checkout main
+```
+
+**Before each sync**, re-check nothing personal crept in:
+
+```sh
+git grep -inE "private[- ]equity|PE[- ]work|portfolio[- ]compan|Users.smith|C--Users"
+```
+
+Machine-specific and secret paths are excluded by the `.gitignore` allowlist either way, but that
+allowlist protects *files*, not *prose* — the grep is what catches employer detail written into a
+skill or a comment.
+
 ## License & attribution
 
 The configuration, hooks, scripts, commands, agents, and skills authored here are MIT-licensed
