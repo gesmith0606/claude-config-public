@@ -1,0 +1,42 @@
+# Deterministic line endings across the 3 machines (Windows gaming PC, MacBook, work laptop).
+# Without this + core.autocrlf=true, LF shell/JS scripts get checked out as CRLF on Windows
+# and break (e.g. `$'\r': command not found`). Pin every text type explicitly.
+
+* text=auto eol=lf
+
+# Scripts that MUST keep their native ending to run
+*.sh   text eol=lf
+*.js   text eol=lf
+*.mjs  text eol=lf
+*.cjs  text eol=lf
+*.py   text eol=lf
+*.json text eol=lf
+*.md   text eol=lf
+*.yml  text eol=lf
+*.yaml text eol=lf
+
+# Windows-only scripts want CRLF
+*.ps1  text eol=crlf
+*.bat  text eol=crlf
+*.cmd  text eol=crlf
+
+# Binary assets — never normalize (Office templates, fonts, images, archives)
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.webp binary
+*.pdf  binary
+*.zip  binary
+*.gz   binary
+*.docx binary
+*.xlsx binary
+*.pptx binary
+*.dotx binary
+*.xltx binary
+*.potx binary
+*.woff  binary
+*.woff2 binary
+*.ttf  binary
+*.otf  binary

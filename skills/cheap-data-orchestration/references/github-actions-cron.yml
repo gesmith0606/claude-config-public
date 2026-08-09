@@ -1,0 +1,74 @@
+# Starter scheduled pipeline: cron -> extract/load -> dbt -> quality gate -> publish -> alert.
+# Copy to .github/workflows/pipeline.yml and adjust. Comments mark the safe-by-default choices.
+name: daily-pipeline
+
+on:
+  schedule:
+    - cron: "17 6 * * *"        # 06:17 UTC daily. UTC! Off-the-hour to dodge shared-runner congestion.
+  workflow_dispatch:            # Manual + backfill entry point. Also keeps the schedule from auto-disabling.
+    inputs:
+      run_date:
+        description: "Partition to (re)build, YYYY-MM-DD. Blank = yesterday."
+        required: false
+        default: ""
+
+concurrency:
+  group: daily-pipeline         # One run at a time: a slow run can't overlap the next tick and double-write.
+  cancel-in-progress: false     # Let the in-flight run finish; don't cancel a half-written load.
+
+permissions:
+  contents: read
+  id-token: write               # For OIDC -> warehouse/cloud. Prefer this over long-lived secrets.
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60         # Fail rather than burn minutes if something hangs.
+    env:
+      # Deterministic partition: explicit input, else yesterday (UTC). Never now() inside the logic.
+      RUN_DATE: ${{ github.event.inputs.run_date || '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Resolve run_date
+        run: |
+          RD="${RUN_DATE:-$(date -u -d 'yesterday' +%F)}"
+          echo "RUN_DATE=$RD" >> "$GITHUB_ENV"
+          echo "Building partition $RD"
+
+      - name: Install deps
+        run: pip install -r requirements.txt   # dbt-core + adapter + extract scripts pinned here.
+
+      # --- Extract / load. Idempotent: writes into dt=$RUN_DATE, overwriting that partition only. ---
+      - name: Extract and load
+        run: python3 -m pipeline.extract --run-date "$RUN_DATE"
+
+      # --- Transform. dbt incremental models keyed on a unique_key, filtered to $RUN_DATE. ---
+      - name: dbt build
+        run: dbt build --vars "{run_date: '${{ env.RUN_DATE }}'}" --fail-fast
+
+      # --- Quality gate BETWEEN transform and publish. Non-zero exit blocks publish. ---
+      - name: Quality gate
+        run: dbt test --select tag:gate --vars "{run_date: '${{ env.RUN_DATE }}'}"
+
+      # --- Assert work happened: a green-but-empty run is a silent failure. ---
+      - name: Assert non-empty
+        run: python3 -m pipeline.assert_rows --run-date "$RUN_DATE" --min-rows 1
+
+      # --- Publish only after the gate passes. Idempotent upsert keyed on (dataset, run_date). ---
+      - name: Publish
+        run: python3 -m pipeline.publish --run-date "$RUN_DATE"
+
+      # --- Alert on ANY failure above. Success stays silent. Swap for Slack/PagerDuty/email. ---
+      - name: Alert on failure
+        if: failure()
+        run: |
+          curl -fsS -X POST "$ALERT_WEBHOOK_URL" \
+            -H 'content-type: application/json' \
+            -d "{\"text\":\"daily-pipeline FAILED for ${RUN_DATE} (run ${GITHUB_RUN_ID})\"}"
+        env:
+          ALERT_WEBHOOK_URL: ${{ secrets.ALERT_WEBHOOK_URL }}

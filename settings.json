@@ -1,0 +1,84 @@
+{
+  "env": {
+    "BU_CDP": "http://localhost:9222"
+  },
+  "permissions": {
+    "allow": [
+      "Bash(gws:*)",
+      "Bash(node scripts/detect-capabilities.js*)"
+    ],
+    "deny": [
+      "Read(**/.env)",
+      "Read(**/.env.*)",
+      "Read(**/.ssh/**)",
+      "Read(**/.aws/**)",
+      "Read(**/*.pem)",
+      "Read(**/*.key)",
+      "Read(**/*.p12)",
+      "Read(**/*.pfx)",
+      "Read(**/*.ppk)",
+      "Read(**/id_rsa)",
+      "Read(**/id_ed25519)",
+      "Read(**/id_ecdsa)",
+      "Read(**/credentials)",
+      "Read(**/.credentials.json)",
+      "Read(**/.git-credentials)",
+      "Read(**/.npmrc)",
+      "Read(**/.pypirc)",
+      "Read(**/.pgpass)",
+      "Read(**/.netrc)",
+      "Read(**/.kube/config)",
+      "Read(**/.docker/config.json)",
+      "Read(**/*.kdbx)",
+      "Read(**/gcloud/**)",
+      "Read(**/Cookies)",
+      "Read(**/Login Data)"
+    ]
+  },
+  "model": "opus[1m]",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|clear",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"require(require('path').join(require('os').homedir(), '.claude', 'scripts', 'run-claude-entry.js')).main(process.argv.slice(1))\" -- hooks/session-handoff.js"
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"require(require('path').join(require('os').homedir(), '.claude', 'scripts', 'run-claude-entry.js')).main(process.argv.slice(1))\" -- hooks/save-reminder.js"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"require(require('path').join(require('os').homedir(), '.claude', 'scripts', 'run-claude-entry.js')).main(process.argv.slice(1))\" -- hooks/on-git-push.js"
+          }
+        ]
+      }
+    ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "node -e \"require(require('path').join(require('os').homedir(), '.claude', 'scripts', 'run-claude-entry.js')).main(process.argv.slice(1))\" -- statusline.js"
+  },
+  "enabledPlugins": {
+    "skill-creator@claude-plugins-official": false,
+    "plugin-dev@claude-plugins-official": false
+  },
+  "tui": "fullscreen",
+  "skipDangerousModePermissionPrompt": false,
+  "agentPushNotifEnabled": false
+}

@@ -1,0 +1,34 @@
+# Back up ONLY the hand-authored machinery. Ignore everything else by default —
+# secrets, runtime state, caches, transcripts, plugins (externally managed).
+/*
+
+# Re-include the config + machinery we author
+!/.gitignore
+!/.gitattributes
+!/.graphifyignore
+!/CLAUDE.md
+!/README.md
+!/LICENSE
+!/machine.example.json
+!/settings.json
+!/keybindings.json
+!/statusline.js
+!/skills/
+!/agents/
+!/hooks/
+!/scripts/
+# Pre-allowlist future harness machinery so new features actually sync to the other machines.
+# (The allowlist silently ignores any NEW top-level path that isn't re-included here.)
+!/commands/
+!/output-styles/
+# Custom local MCP servers (e.g. comfyui-image). Source syncs; the **/node_modules/
+# rule below keeps each machine's installed deps out — run `npm install` per machine.
+!/mcp-servers/
+!/bootstrap.sh
+!/bootstrap.ps1
+
+# Belt-and-suspenders: never track these even inside tracked dirs
+**/__pycache__/
+**/node_modules/
+**/*.log
+.credentials.json

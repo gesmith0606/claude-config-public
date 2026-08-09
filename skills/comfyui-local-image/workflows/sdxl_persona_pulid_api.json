@@ -1,0 +1,83 @@
+{
+  "4": {
+    "class_type": "CheckpointLoaderSimple",
+    "inputs": { "ckpt_name": "Juggernaut-XL_v9_RunDiffusionPhoto_v2.safetensors" },
+    "_meta": { "title": "Load Checkpoint" }
+  },
+  "10": {
+    "class_type": "PulidModelLoader",
+    "inputs": { "pulid_file": "ip-adapter_pulid_sdxl_fp16.safetensors" },
+    "_meta": { "title": "Load PuLID" }
+  },
+  "11": {
+    "class_type": "PulidEvaClipLoader",
+    "inputs": {},
+    "_meta": { "title": "Load EVA-CLIP" }
+  },
+  "12": {
+    "class_type": "PulidInsightFaceLoader",
+    "inputs": { "provider": "CPU" },
+    "_meta": { "title": "Load InsightFace" }
+  },
+  "13": {
+    "class_type": "LoadImage",
+    "inputs": { "image": "reference.png" },
+    "_meta": { "title": "FACE" }
+  },
+  "14": {
+    "class_type": "ApplyPulid",
+    "inputs": {
+      "model": ["4", 0],
+      "pulid": ["10", 0],
+      "eva_clip": ["11", 0],
+      "face_analysis": ["12", 0],
+      "image": ["13", 0],
+      "method": "fidelity",
+      "weight": 0.8,
+      "start_at": 0.0,
+      "end_at": 1.0
+    },
+    "_meta": { "title": "Apply PuLID" }
+  },
+  "6": {
+    "class_type": "CLIPTextEncode",
+    "inputs": { "text": "a photo", "clip": ["4", 1] },
+    "_meta": { "title": "PROMPT" }
+  },
+  "7": {
+    "class_type": "CLIPTextEncode",
+    "inputs": { "text": "blurry, low quality, deformed, watermark, text, extra fingers, bad anatomy", "clip": ["4", 1] },
+    "_meta": { "title": "Negative" }
+  },
+  "5": {
+    "class_type": "EmptyLatentImage",
+    "inputs": { "width": 1024, "height": 1024, "batch_size": 1 },
+    "_meta": { "title": "Empty Latent" }
+  },
+  "3": {
+    "class_type": "KSampler",
+    "inputs": {
+      "seed": 42,
+      "steps": 30,
+      "cfg": 5.0,
+      "sampler_name": "dpmpp_2m",
+      "scheduler": "karras",
+      "denoise": 1.0,
+      "model": ["14", 0],
+      "positive": ["6", 0],
+      "negative": ["7", 0],
+      "latent_image": ["5", 0]
+    },
+    "_meta": { "title": "KSampler" }
+  },
+  "8": {
+    "class_type": "VAEDecode",
+    "inputs": { "samples": ["3", 0], "vae": ["4", 2] },
+    "_meta": { "title": "VAE Decode" }
+  },
+  "9": {
+    "class_type": "SaveImage",
+    "inputs": { "filename_prefix": "persona", "images": ["8", 0] },
+    "_meta": { "title": "Save Image" }
+  }
+}

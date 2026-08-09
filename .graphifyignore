@@ -1,0 +1,16 @@
+# graphify-only overrides for the whitelist-style .gitignore.
+# graphify's fnmatch matcher treats the `/*` line as recursive (git treats it
+# as top-level-only), which silently drops everything under the re-included
+# machinery dirs. Re-include those trees here; loaded after .gitignore, so
+# these negations win via last-match-wins.
+!/skills/**
+!/agents/**
+!/hooks/**
+!/scripts/**
+!/commands/**
+!/output-styles/**
+!/mcp-servers/**
+# Keep deps/caches/logs excluded even inside the re-included trees.
+**/node_modules/
+**/__pycache__/
+**/*.log
