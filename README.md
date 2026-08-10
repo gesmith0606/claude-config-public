@@ -119,8 +119,8 @@ skill or a comment.
 
 ## License & attribution
 
-The configuration, hooks, scripts, commands, agents, and skills authored here are MIT-licensed
-(see `LICENSE`). Bundled third-party material keeps its own license and is **not** covered by it:
+`LICENSE` (MIT) covers **only** the configuration, hooks, scripts, commands, agents, and skills
+authored here. Bundled third-party material keeps its own license and is **not** covered by it:
 
 | Path | Origin | License |
 |---|---|---|
