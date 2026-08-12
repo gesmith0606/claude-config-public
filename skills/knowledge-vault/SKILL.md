@@ -96,12 +96,19 @@ For an article, doc, or paper the user wants captured:
 
 ### 4. Lint — keep the vault healthy
 
-On request ("lint the vault" / "check the brain"):
+On request ("lint the vault" / "check the brain"), run the script — don't do it by hand:
 
-- Find orphan notes (not linked from `index.md` or any other note).
-- Find dead `[[wikilinks]]` (point at non-existent notes).
-- Flag notes missing frontmatter or with stale `updated` dates.
-- Report findings; fix with the user's OK.
+```sh
+node ~/.claude/scripts/vault-lint.js              # report
+node ~/.claude/scripts/vault-lint.js --fix-index  # append missing notes to index.md
+```
+
+It checks index coverage, true orphans, cross-layer links, frontmatter (including the
+unquoted-`:` YAML trap), and stray non-note `.md` files. It also runs as part of `/health`.
+
+Two results are **not** problems: links to notes that don't exist yet (the convention blesses
+them — check for typos only), and any warning you've consciously accepted. Fix the rest with
+the user's OK.
 
 ## Relationship to graphify
 
