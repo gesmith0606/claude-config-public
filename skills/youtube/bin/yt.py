@@ -17,6 +17,7 @@ import urllib.parse
 from pathlib import Path
 
 DEFAULT_MODEL = os.environ.get("YT_GEMINI_MODEL", "gemini-flash-latest")
+FALLBACK_MODEL = "gemini-flash-lite-latest"
 RESOLVER = Path.home() / ".claude" / "scripts" / "resolve-secret.js"
 
 SUMMARY_PROMPT = (
@@ -137,10 +138,18 @@ def ask_gemini(a, prompt):
     video = types.Part(file_data=types.FileData(file_uri=url), video_metadata=meta)
     cfg = types.GenerateContentConfig(
         media_resolution=types.MediaResolution.MEDIA_RESOLUTION_LOW if a.low_res else None)
+    contents = types.Content(role="user", parts=[video, types.Part(text=prompt)])
     try:
-        resp = client.models.generate_content(
-            model=a.model, contents=types.Content(role="user", parts=[video, types.Part(text=prompt)]),
-            config=cfg)
+        try:
+            resp = client.models.generate_content(model=a.model, contents=contents, config=cfg)
+        except errors.APIError as e:
+            # 503 = Google-side overload ("high demand"), common on the default Flash model.
+            # One fallback to Flash-Lite, only when the user didn't pick a model themselves.
+            if getattr(e, "code", None) != 503 or a.model != DEFAULT_MODEL or a.model == FALLBACK_MODEL:
+                raise
+            print(f"yt: {a.model} overloaded (503) - retrying once with {FALLBACK_MODEL}", file=sys.stderr)
+            a.model = FALLBACK_MODEL
+            resp = client.models.generate_content(model=a.model, contents=contents, config=cfg)
     except errors.APIError as e:
         code = getattr(e, "code", None)
         if code == 429:

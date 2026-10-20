@@ -1,5 +1,11 @@
 #!/bin/sh
 # yt wrapper: run yt.py with the ~/.claude venv python (where google-genai is installed).
+# Follow symlinks (e.g. ~/.local/bin/yt) so yt.py is found next to the real script.
+self="$0"
+while [ -L "$self" ]; do
+  link=$(readlink "$self")
+  case "$link" in /*) self="$link" ;; *) self="$(dirname "$self")/$link" ;; esac
+done
 py="$HOME/.claude/.venv/bin/python3"
 [ -x "$py" ] || py=python3
-exec "$py" "$(dirname "$0")/yt.py" "$@"
+exec "$py" "$(dirname "$self")/yt.py" "$@"

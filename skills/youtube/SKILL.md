@@ -15,8 +15,13 @@ visuals and never hits YouTube's bot checks or caption PO-token wall.
   `%USERPROFILE%\.claude\skills\youtube\bin` on PATH (`yt.cmd`).
 - Gemini key: the CLI reads `$GEMINI_API_KEY`, else resolves the `GEMINI_API_KEY` item itself via
   `~/.claude/scripts/resolve-secret.js` (env -> OS keychain -> Bitwarden; see the `bitwarden` skill).
-  Exit 2 = no key: the vault is locked (`bwu` in the same shell) or the item is missing. Search
-  needs no key. Never print the key.
+  Bitwarden is the source of truth; on the MacBook an encrypted Keychain copy (generic password,
+  service `GEMINI_API_KEY`) lets `yt` run from any shell, Claude's included, without `bwu`.
+  Exit 2 = no key: no Keychain copy and the vault is locked (`bwu` in the same shell), or the item
+  is missing. Search needs no key. Never print the key. After rotating the key, refresh the
+  Keychain copy too.
+- A 503 ("high demand") on the default model retries once on `gemini-flash-lite-latest` (said on
+  stderr); an explicit `--model` is never swapped.
 
 ## Commands
 
