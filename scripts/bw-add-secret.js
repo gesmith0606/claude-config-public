@@ -78,7 +78,9 @@ delete item.identity;
 const encoded = bw(["encode"], JSON.stringify(item));
 if (encoded.status !== 0 || !encoded.stdout.trim()) die("bw encode failed");
 
-const created = bw(["create", "item", encoded.stdout.trim()]);
+// Pipe the encoded item (it carries the password) on stdin, not argv — argv is
+// visible in the process table for as long as `bw create` runs.
+const created = bw(["create", "item"], encoded.stdout.trim());
 if (created.status !== 0) {
   die(`bw create failed: ${(created.stderr || "").trim().split("\n")[0] || "unknown error"}`);
 }
