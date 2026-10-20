@@ -1,0 +1,245 @@
+#!/usr/bin/env python3
+"""reddit — search and read Reddit via the Arctic Shift archive (no login, no API key).
+
+Lives in ~/.claude/skills/reddit/bin so it syncs with the config repo. Stdlib only.
+See ../SKILL.md for usage rules (keyword search needs -s; 422 = archive timeout).
+"""
+import argparse
+import json
+import re
+import sys
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+from datetime import datetime, timezone
+
+API = "https://arctic-shift.photon-reddit.com/api"
+UA = "claude-config-reddit-cli/1.0 (+https://github.com/gesmith0606/claude-config-public)"
+RETRY_WAITS = (5, 15)   # polite backoff for 422 (archive timeout) and 429 (rate limit)
+
+
+class ApiError(Exception):
+    def __init__(self, code, msg):
+        super().__init__(f"HTTP {code}: {msg}")
+        self.code = code
+
+
+def get(path, **params):
+    params = {k: v for k, v in params.items() if v not in (None, "")}
+    url = f"{API}/{path}?{urllib.parse.urlencode(params)}"
+    for attempt in range(len(RETRY_WAITS) + 1):
+        req = urllib.request.Request(url, headers={"User-Agent": UA})
+        try:
+            with urllib.request.urlopen(req, timeout=60) as r:
+                body = json.load(r)
+            if body.get("error"):
+                raise ApiError(200, body["error"])
+            return body.get("data") or []
+        except urllib.error.HTTPError as e:
+            try:
+                msg = json.load(e).get("error") or e.reason
+            except Exception:
+                msg = e.reason
+            if e.code in (422, 429) and attempt < len(RETRY_WAITS):
+                print(f"reddit: HTTP {e.code} ({msg}) - retrying in {RETRY_WAITS[attempt]}s", file=sys.stderr)
+                time.sleep(RETRY_WAITS[attempt])
+                continue
+            raise ApiError(e.code, msg)
+        except urllib.error.URLError as e:
+            raise ApiError(0, f"network error: {e.reason}")
+
+
+def subs(arg):
+    return [s.strip().removeprefix("r/") for s in (arg or "").split(",") if s.strip()]
+
+
+def date(ts):
+    return datetime.fromtimestamp(int(ts or 0), tz=timezone.utc).strftime("%Y-%m-%d")
+
+
+def norm(x, kind):
+    out = {
+        "kind": kind,
+        "id": x.get("id"),
+        "subreddit": x.get("subreddit"),
+        "author": x.get("author"),
+        "created_utc": x.get("created_utc"),
+        "date": date(x.get("created_utc")),
+        "score": x.get("score"),
+        "permalink": "https://reddit.com" + (x.get("permalink") or ""),
+    }
+    if kind == "post":
+        out.update(title=x.get("title"), num_comments=x.get("num_comments"),
+                   selftext=x.get("selftext") or "", url=x.get("url"))
+        if not x.get("permalink"):
+            out["permalink"] = f"https://reddit.com/r/{x.get('subreddit')}/comments/{x.get('id')}/"
+    else:
+        out.update(body=x.get("body") or "", link_id=x.get("link_id"), parent_id=x.get("parent_id"))
+    return out
+
+
+def snippet(text, n=280):
+    text = re.sub(r"\s+", " ", text or "").strip()
+    return text if len(text) <= n else text[: n - 1] + "…"
+
+
+def emit(items, as_json, out=sys.stdout):
+    if as_json:
+        for it in items:
+            out.write(json.dumps(it, ensure_ascii=False) + "\n")
+        return
+    if not items:
+        print("(no results)", file=sys.stderr)
+    for it in items:
+        if it["kind"] == "post":
+            print(f"{it['date']}  r/{it['subreddit']}  score {it['score']}  comments {it['num_comments']}  u/{it['author']}")
+            print(f"  {it['title']}")
+            if it["selftext"]:
+                print(f"  {snippet(it['selftext'])}")
+        else:
+            print(f"{it['date']}  r/{it['subreddit']}  score {it['score']}  u/{it['author']}  (comment)")
+            print(f"  {snippet(it['body'])}")
+        print(f"  {it['permalink']}\n")
+
+
+def dedupe_sorted(items, n):
+    seen, out = set(), []
+    for it in sorted(items, key=lambda i: i.get("created_utc") or 0, reverse=True):
+        if it["id"] not in seen:
+            seen.add(it["id"])
+            out.append(it)
+    return out[:n]
+
+
+def need_subs(a):
+    s = subs(a.subreddit)
+    if not s:
+        sys.exit("reddit: keyword search needs -s sub1,sub2 (the archive has no global keyword index)")
+    return s
+
+
+def cmd_search(a):
+    items = []
+    for s in need_subs(a):
+        common = dict(subreddit=s, after=a.after, before=a.before, limit=min(a.n, 100), sort="desc")
+        try:
+            rows = get("posts/search", query=a.keywords, **common)
+        except ApiError as e:
+            if e.code != 422:
+                raise
+            # Full-text (title+selftext) search is the expensive one; title-only usually still answers.
+            print(f"reddit: r/{s} full-text search timed out - falling back to title-only search", file=sys.stderr)
+            rows = get("posts/search", title=a.keywords, **common)
+        items += [norm(x, "post") for x in rows]
+        if len(subs(a.subreddit)) > 1:
+            time.sleep(1)  # be polite between fan-out calls
+    return dedupe_sorted(items, a.n)
+
+
+def cmd_browse(a):
+    items = []
+    for s in subs(a.subreddit) or sys.exit("reddit: browse needs -s sub1,sub2"):
+        items += [norm(x, "post") for x in get("posts/search", subreddit=s, after=a.after,
+                                                before=a.before, limit=min(a.n, 100), sort="desc")]
+    return dedupe_sorted(items, a.n)
+
+
+def cmd_comments(a):
+    items = []
+    for s in need_subs(a):
+        items += [norm(x, "comment") for x in get("comments/search", subreddit=s, body=a.keywords,
+                                                   after=a.after, before=a.before,
+                                                   limit=min(a.n, 100), sort="desc")]
+    return dedupe_sorted(items, a.n)
+
+
+def cmd_user(a):
+    u = a.username.removeprefix("u/").removeprefix("/u/")
+    common = dict(author=u, after=a.after, before=a.before, limit=min(a.n, 100), sort="desc")
+    items = [norm(x, "post") for x in get("posts/search", **common)]
+    items += [norm(x, "comment") for x in get("comments/search", **common)]
+    return dedupe_sorted(items, a.n)
+
+
+def post_id(ref):
+    m = re.search(r"(?:comments/|redd\.it/)([a-z0-9]+)", ref, re.I)
+    return (m.group(1) if m else ref).removeprefix("t3_").strip("/")
+
+
+def flatten(nodes, depth=0):
+    for n in nodes or []:
+        if n.get("kind") != "t1":
+            continue
+        d = n.get("data") or {}
+        yield depth, d
+        r = d.get("replies")
+        if isinstance(r, dict):
+            yield from flatten((r.get("data") or {}).get("children"), depth + 1)
+        elif isinstance(r, list):
+            yield from flatten(r, depth + 1)
+
+
+def cmd_thread(a):
+    pid = post_id(a.post)
+    posts = get("posts/ids", ids=pid)
+    if not posts:
+        sys.exit(f"reddit: post {pid} not found in the archive")
+    post = norm(posts[0], "post")
+    tree = get("comments/tree", link_id=f"t3_{pid}", limit=9999)
+    comments = sorted(flatten(tree), key=lambda dc: dc[1].get("score") or 0, reverse=True)[: a.n]
+    if a.json:
+        emit([post] + [dict(norm(d, "comment"), depth=dep) for dep, d in comments], True)
+        return None
+    print(f"{post['date']}  r/{post['subreddit']}  score {post['score']}  comments {post['num_comments']}  u/{post['author']}")
+    print(f"{post['title']}\n{post['permalink']}\n")
+    if post["selftext"]:
+        print(post["selftext"].strip() + "\n")
+    print(f"--- top {len(comments)} comments by score ---\n")
+    for dep, d in comments:
+        print(f"[{d.get('score')}] u/{d.get('author')}  {date(d.get('created_utc'))}" + (f"  (reply depth {dep})" if dep else ""))
+        print("  " + (d.get("body") or "").strip().replace("\n", "\n  ") + "\n")
+    return None
+
+
+def main(argv):
+    as_json = "--json" in argv          # documented as "add --json anywhere"
+    argv = [x for x in argv if x != "--json"]
+    p = argparse.ArgumentParser(prog="reddit", description="Search and read Reddit via the Arctic Shift archive.")
+    sp = p.add_subparsers(dest="cmd", required=True)
+
+    def add(name, *pos, sub=False, sub_required=False):
+        q = sp.add_parser(name)
+        for x in pos:
+            q.add_argument(x)
+        if sub:
+            q.add_argument("-s", "--subreddit", required=sub_required, help="comma-separated subreddits")
+        q.add_argument("-n", type=int, default=30 if name == "thread" else 25)
+        if name != "thread":
+            q.add_argument("--after", help="YYYY-MM-DD")
+            q.add_argument("--before", help="YYYY-MM-DD")
+        return q
+
+    add("search", "keywords", sub=True, sub_required=True)
+    add("browse", sub=True, sub_required=True)
+    add("comments", "keywords", sub=True, sub_required=True)
+    add("user", "username")
+    add("thread", "post")
+    a = p.parse_args(argv)
+    a.json = as_json
+    handler = {"search": cmd_search, "browse": cmd_browse, "comments": cmd_comments,
+               "user": cmd_user, "thread": cmd_thread}[a.cmd]
+    try:
+        items = handler(a)
+    except ApiError as e:
+        hint = " (archive timeout: try one subreddit, add --after, or a simpler keyword)" if e.code == 422 else \
+               " (rate limited: wait a minute)" if e.code == 429 else ""
+        sys.exit(f"reddit: {e}{hint}")
+    if items is not None:
+        emit(items, as_json)
+
+
+if __name__ == "__main__":
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
+    main(sys.argv[1:])

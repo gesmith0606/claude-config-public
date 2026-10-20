@@ -220,6 +220,36 @@
         "win32": "npm i -g playwright && npx playwright install chromium",
         "default": "npm i -g playwright && npx playwright install chromium"
       }
+    },
+    {
+      "name": "photocraft-cli",
+      "required": false,
+      "why": "photocraft skill (headless ArtCraft photocraft)",
+      "install": {
+        "darwin": "gh release download -R storytold/photocraft -p \"photocraft-cli-*-macos-universal.zip\" -> unzip -> ~/.local/bin",
+        "win32": "ArtCraft Launcher / MSI (C:\\Program Files\\<App>\\photocraft-cli.exe, not on PATH)",
+        "default": "github.com/storytold/photocraft releases"
+      }
+    },
+    {
+      "name": "filmcraft-cli",
+      "required": false,
+      "why": "filmcraft skill (headless ArtCraft filmcraft)",
+      "install": {
+        "darwin": "gh release download -R storytold/filmcraft -p \"filmcraft-cli-*-macos-universal.zip\" -> unzip -> ~/.local/bin",
+        "win32": "ArtCraft Launcher / MSI (C:\\Program Files\\<App>\\filmcraft-cli.exe, not on PATH)",
+        "default": "github.com/storytold/filmcraft releases"
+      }
+    },
+    {
+      "name": "pdfcraft-cli",
+      "required": false,
+      "why": "pdfcraft skill (headless ArtCraft pdfcraft)",
+      "install": {
+        "darwin": "gh release download -R storytold/pdfcraft -p \"pdfcraft-cli-*-macos-universal.zip\" -> unzip -> ~/.local/bin",
+        "win32": "ArtCraft Launcher / MSI (C:\\Program Files\\<App>\\pdfcraft-cli.exe, not on PATH)",
+        "default": "github.com/storytold/pdfcraft releases"
+      }
     }
   ],
   "python": [
@@ -257,6 +287,11 @@
       "module": "pdf2image",
       "package": "pdf2image",
       "why": "pdf skill page rendering (needs poppler)"
+    },
+    {
+      "module": "google.genai",
+      "package": "google-genai",
+      "why": "youtube skill (yt summary/ask/transcript via Gemini)"
     }
   ]
 }

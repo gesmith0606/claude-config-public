@@ -1,4 +1,4 @@
-﻿---
+---
 name: reddit
 description: Search and read Reddit from the command line (no login, no API key) via the Arctic Shift archive. Use when the user asks what Reddit says about something, wants community opinions, troubleshooting threads, "is X legit" checks, subreddit consensus, or a user's post history.
 ---
@@ -9,10 +9,13 @@ Search and read Reddit via the `reddit` CLI, which queries the Arctic Shift arch
 API (`https://arctic-shift.photon-reddit.com/api`). Free, no key, no account. Data is
 near-live (usually minutes behind reddit.com) with history back to 2005.
 
-- CLI source: `%USERPROFILE%\tools\reddit-cli\reddit` (Python 3, stdlib only)
-- Wrapper on PATH: `%USERPROFILE%\tools\bin\reddit.cmd` (sets UTF-8 output)
-- If `reddit` is not found in a shell, run:
-  `python "$env:USERPROFILE\tools\reddit-cli\reddit" <args>`
+- CLI: `~/.claude/skills/reddit/bin/reddit` (Python 3, stdlib only) - ships with this skill, so it
+  syncs with the config repo. On PATH via `~/.local/bin/reddit` (macOS/Linux symlink); on Windows
+  put `%USERPROFILE%\.claude\skills\reddit\bin` on PATH (`reddit.cmd` sets UTF-8 output).
+- If `reddit` is not found: `python3 ~/.claude/skills/reddit/bin/reddit <args>`
+  (Windows: `py -3 "$env:USERPROFILE\.claude\skills\reddit\bin\reddit" <args>`)
+- When full-text `search` times out (422) after retries, the CLI falls back to a title-only search
+  and says so on stderr - title-only matches are fewer but usually still answer.
 
 Why this exists: Reddit closed self-service API keys (Nov 2025) and blocks
 unauthenticated .json requests with 403 (mid-2026), which broke PRAW-based tools and

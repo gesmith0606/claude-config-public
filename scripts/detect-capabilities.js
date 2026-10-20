@@ -51,6 +51,11 @@ const PROBES = [
   ["pre-commit",  "pre-commit",  ["--version"], (o) => ver(o)],  // "pre-commit 4.7.0"
   ["gitleaks",    "gitleaks",    ["version"],   (o) => ver(o)],  // "gitleaks version 8.30.1"
   ["playwright",  "playwright",  ["--version"], (o) => ver(o)],  // "Version 1.64.1"
+  // ArtCraft CLIs (photocraft/filmcraft/pdfcraft skills). On Windows they sit off PATH in
+  // C:\\Program Files\\<App>\\ — the skills resolve that themselves; this probes PATH only.
+  ["photocraft-cli", "photocraft-cli", ["--version"], (o) => ver(o)],  // "photocraft-cli 0.10.0 (...)"
+  ["filmcraft-cli",  "filmcraft-cli",  ["--version"], (o) => ver(o)],  // "filmcraft-cli 0.9.0"
+  ["pdfcraft-cli",   "pdfcraft-cli",   ["--version"], (o) => ver(o)],  // "pdfcraft-cli 0.9.0"
   // tesseract emits version on stdout OR stderr depending on build — read both.
   ["tesseract", "tesseract", ["--version"], (o, e) => ver(o || e)],
   // claude: presence only. run-routine.js must still verify it's authenticated

@@ -1,0 +1,5 @@
+#!/bin/sh
+# yt wrapper: run yt.py with the ~/.claude venv python (where google-genai is installed).
+py="$HOME/.claude/.venv/bin/python3"
+[ -x "$py" ] || py=python3
+exec "$py" "$(dirname "$0")/yt.py" "$@"

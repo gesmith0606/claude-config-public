@@ -13,19 +13,19 @@ description: >-
 
 CLI-first by design: everything below is plain `photocraft-cli` subcommands. The CLI also has an MCP
 server (`photocraft-cli mcp`); don't enable it unless a task truly needs a long interactive session.
-Verified against photocraft-cli **0.8.2**. If `--version` reports something newer, re-check `--help`
-before trusting a trap below.
+Verified against photocraft-cli **0.10.0** (macOS; Windows last checked on 0.8.2). If `--version` reports
+something newer, re-check `--help` before trusting a trap below.
 
 ## Find the CLI
 
 ```bash
-PC="$(command -v photocraft-cli || echo '/c/Program Files/PhotoCraft/photocraft-cli.exe')"
+PC="$(command -v photocraft-cli || command -v ~/.local/bin/photocraft-cli || echo '/c/Program Files/PhotoCraft/photocraft-cli.exe')"
 "$PC" --version
 ```
 
 - **Windows:** the MSI installs to `C:\Program Files\PhotoCraft\` and does **not** add it to PATH.
-- **macOS:** the CLI is a separate zip (`photocraft-cli-<ver>-macos-universal.zip` on the GitHub release),
-  not inside the `.app`. Put it on PATH (`~/.local/bin`).
+- **macOS:** the CLI is a separate zip (`photocraft-cli-<ver>-macos-universal.zip` on the
+  `github.com/storytold/photocraft` release), not inside the `.app`. It lives in `~/.local/bin`.
 - **Paths inside JSON** (`--params`, action files) are not translated by Git Bash. Use relative paths
   or `C:/forward/slashes`, never `/c/...`.
 
@@ -49,7 +49,7 @@ Action file for `batch` — a list of `[id, params]` pairs:
 [["filter.blur.gaussianBlur", {"radius": 2}], ["image.adjustments.desaturate", {}]]
 ```
 
-## Tested recipes (0.8.2)
+## Tested recipes (0.10.0)
 
 ```bash
 # Blur + curves adjustment layer, export JPEG
@@ -69,8 +69,8 @@ Action file for `batch` — a list of `[id, params]` pairs:
 - **Overwrites are silent.** Write to new filenames; never `--out` onto the user's original.
 - **Batch name clashes:** `photo.png` and `photo.jpg` in the same `--in` folder map to the same output
   name; the second one fails. `--out` equal to `--in` is refused unless `--in-place`.
-- **Params:** 0.8.2 rejects unknown keys (`unknown parameter 'radiuss'`) but still **clamps** out-of-range
-  numbers silently. Check `commands --json` for ranges, e.g. `{"radius":0.1..1000=1}`.
+- **Params:** rejects unknown keys (`unknown parameter 'radiuss'`) and, since 0.10.0, out-of-range numbers
+  (`radius must be a number in 0.1..1000`; 0.8.2 clamped them silently). Ranges: `commands --json`.
 - **Colours:** pass `"#rrggbb"`. Arrays are read as 0..1, so `[128,128,128]` is white.
 - **Layer targeting:** `layer` params take the integer `id` from `info`, not a name.
 - **Colour-managed docs:** Linear-sRGB/EXR and ProPhoto/Adobe RGB files preview and export with raw values.

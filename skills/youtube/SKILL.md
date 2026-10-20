@@ -9,12 +9,14 @@ The `yt` CLI. Search runs through yt-dlp (no key). Video understanding runs thro
 Gemini API, which reads public YouTube URLs on Google's side - so it sees audio AND
 visuals and never hits YouTube's bot checks or caption PO-token wall.
 
-- CLI source: `%USERPROFILE%\tools\yt-cli\yt` (Python 3; needs `yt-dlp`, `google-genai`)
-- Wrapper on PATH: `%USERPROFILE%\tools\bin\yt.cmd`
-- If `yt` is not found: `python "$env:USERPROFILE\tools\yt-cli\yt" <args>`
-- Gemini key: resolve it through this config's standard backend (env → OS keychain → Bitwarden `bw`; see the `bitwarden` skill) and pass it as the `GEMINI_API_KEY` env var, which the CLI honours:
-  `GEMINI_API_KEY="$(node ~/.claude/scripts/resolve-secret.js GEMINI_API_KEY)" yt summary <url>`
-  If it exits 2 the vault is locked (`bwu`) or the item is missing (`bw-add-secret.js`). Search needs no key. Never print the key.
+- CLI: `~/.claude/skills/youtube/bin/yt` (wrapper) -> `yt.py`, run with the `~/.claude/.venv` python
+  (needs `yt-dlp` on PATH and `google-genai` in the venv). Ships with this skill, so it syncs with
+  the config repo. On PATH via `~/.local/bin/yt` (macOS/Linux symlink); on Windows put
+  `%USERPROFILE%\.claude\skills\youtube\bin` on PATH (`yt.cmd`).
+- Gemini key: the CLI reads `$GEMINI_API_KEY`, else resolves the `GEMINI_API_KEY` item itself via
+  `~/.claude/scripts/resolve-secret.js` (env -> OS keychain -> Bitwarden; see the `bitwarden` skill).
+  Exit 2 = no key: the vault is locked (`bwu` in the same shell) or the item is missing. Search
+  needs no key. Never print the key.
 
 ## Commands
 

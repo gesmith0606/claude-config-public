@@ -16,17 +16,19 @@ description: >-
 
 CLI-first: everything below is plain `filmcraft-cli`. It also has an MCP server (`filmcraft-cli mcp`);
 don't enable it unless a task truly needs a long interactive session. Verified against filmcraft-cli
-**0.7.2**. If `--version` is newer, re-check `"$FC" help` before trusting a trap below.
+**0.9.0** (macOS; Windows last checked on 0.7.2). If `--version` is newer, re-check `"$FC" help` before
+trusting a trap below.
 
 ## Find the CLI
 
 ```bash
-FC="$(command -v filmcraft-cli || echo '/c/Program Files/FilmCraft/filmcraft-cli.exe')"
+FC="$(command -v filmcraft-cli || command -v ~/.local/bin/filmcraft-cli || echo '/c/Program Files/FilmCraft/filmcraft-cli.exe')"
 "$FC" --version
 ```
 
 - **Windows:** MSI install at `C:\Program Files\FilmCraft\`, not on PATH.
-- **macOS:** separate CLI zip on the GitHub release; put it on PATH.
+- **macOS:** separate CLI zip (`filmcraft-cli-<ver>-macos-universal.zip` on the `github.com/storytold/filmcraft`
+  release), installed to `~/.local/bin`.
 - **Paths inside JSON** or `key=value` args are not translated by Git Bash: use relative paths or
   `C:/forward/slashes`, never `/c/...`.
 
@@ -39,7 +41,7 @@ Nothing persists between invocations unless you save. Pattern:
 - Read-only calls (inspect, render, export) need `--project` but not `--save`.
 - Add `--compact` for one-line JSON.
 
-## Tested workflow (0.7.2)
+## Tested workflow (0.9.0)
 
 ```bash
 "$FC" probe clip.mp4 --compact                                   # codec, fps, duration (ticks)
@@ -64,7 +66,8 @@ Read the ids from each result (`items`, `clips`, `sequence`); don't assume the n
 
 ## Export
 
-- Media: `export out.mp4 [--format h264|hevc|prores|dnxhr|mjpeg|mxf-op1a|png|gif|wav|aac…]`
+- Media: `export out.mp4 [--format h264|hevc|prores|dnxhr|apv|mjpeg|mxf-op1a|png|tiff|gif|wav|aiff|aac…]`
+  or `--preset "<name>"` (`export --list-presets h264`)
   `[--start 1 --end 2.5]` (seconds, end-exclusive) `[--scale 0.5] [--quality 0-100] [--no-audio]`.
   Exit code 1 if offline media rendered as placeholders (`--allow-offline` accepts it).
 - Interchange: `exec file.exportEdl path=cut.edl`, `file.exportFcp7Xml`, `file.exportFcpxml`,
