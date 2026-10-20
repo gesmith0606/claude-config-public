@@ -40,6 +40,17 @@ const PROBES = [
   ["duckdb",  "duckdb",  ["--version"], (o)    => ver(o)],       // "v1.1.3 ..."
   ["sqlite3", "sqlite3", ["--version"], (o)    => ver(o)],       // "3.45.1 2024-..."
   ["pandoc",  "pandoc",  ["--version"], (o)    => ver(o)],       // "pandoc 3.1.11"
+  // qpdf was listed as a skill dependency in health-check.js but never probed here,
+  // so the check silently passed on every machine. Probe it. (2026-08)
+  ["qpdf",    "qpdf",    ["--version"], (o)    => ver(o)],       // "qpdf version 11.9.0"
+  // Bitwarden CLI — backs the "bitwarden" secrets backend in resolve-secret.js.
+  ["bw",      "bw",      ["--version"], (o)    => ver(o)],       // "2026.8.0"
+  // Skill-backing CLIs added 2026-10 (youtube, video-edit, pre-commit-wiring, animate).
+  ["yt-dlp",      "yt-dlp",      ["--version"], (o) => ver(o)],  // "2026.06.09"
+  ["auto-editor", "auto-editor", ["--version"], (o) => ver(o)],  // "29.3.1"
+  ["pre-commit",  "pre-commit",  ["--version"], (o) => ver(o)],  // "pre-commit 4.7.0"
+  ["gitleaks",    "gitleaks",    ["version"],   (o) => ver(o)],  // "gitleaks version 8.30.1"
+  ["playwright",  "playwright",  ["--version"], (o) => ver(o)],  // "Version 1.64.1"
   // tesseract emits version on stdout OR stderr depending on build — read both.
   ["tesseract", "tesseract", ["--version"], (o, e) => ver(o || e)],
   // claude: presence only. run-routine.js must still verify it's authenticated

@@ -1,0 +1,6 @@
+{
+  "name": "cache-band",
+  "version": "0.1.0",
+  "description": "Band above the prompt: prompt-cache time left, session hit rate, and a Compact button",
+  "types": "./types/index.d.ts"
+}

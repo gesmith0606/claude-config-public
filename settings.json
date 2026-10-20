@@ -32,7 +32,37 @@
       "Read(**/*.kdbx)",
       "Read(**/gcloud/**)",
       "Read(**/Cookies)",
-      "Read(**/Login Data)"
+      "Read(**/Login Data)",
+      "Bash(cat .env*)",
+      "Bash(head .env*)",
+      "Bash(tail .env*)",
+      "Bash(less .env*)",
+      "Bash(strings .env*)",
+      "Bash(cat *.pem)",
+      "Bash(head *.pem)",
+      "Bash(tail *.pem)",
+      "Bash(less *.pem)",
+      "Bash(strings *.pem)",
+      "Bash(cat *id_rsa*)",
+      "Bash(head *id_rsa*)",
+      "Bash(tail *id_rsa*)",
+      "Bash(less *id_rsa*)",
+      "Bash(strings *id_rsa*)",
+      "Bash(cat */.ssh/*)",
+      "Bash(head */.ssh/*)",
+      "Bash(tail */.ssh/*)",
+      "Bash(less */.ssh/*)",
+      "Bash(strings */.ssh/*)",
+      "Bash(cat */.aws/*)",
+      "Bash(head */.aws/*)",
+      "Bash(tail */.aws/*)",
+      "Bash(less */.aws/*)",
+      "Bash(strings */.aws/*)",
+      "Bash(cat */.git-credentials)",
+      "Bash(head */.git-credentials)",
+      "Bash(tail */.git-credentials)",
+      "Bash(less */.git-credentials)",
+      "Bash(strings */.git-credentials)"
     ]
   },
   "model": "opus[1m]",
@@ -76,7 +106,16 @@
   },
   "enabledPlugins": {
     "skill-creator@claude-plugins-official": false,
-    "plugin-dev@claude-plugins-official": false
+    "plugin-dev@claude-plugins-official": false,
+    "cache-band@local-mods": true
+  },
+  "extraKnownMarketplaces": {
+    "local-mods": {
+      "source": {
+        "source": "directory",
+        "path": "~/.claude/mods"
+      }
+    }
   },
   "tui": "fullscreen",
   "skipDangerousModePermissionPrompt": false,

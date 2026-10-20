@@ -15,8 +15,8 @@ Everything downstream — modeling, validation, quality — belongs to `dbt`, `d
 friends. Stop here once data is raw.
 
 **Egress:** dlt runs fully local, source → destination on your machine. Nothing reaches dlt's hosted
-cloud. Ignore "dltHub Pro" / dlt+ managed runtime entirely. Safe on the work laptop as long as
-the destination is your own warehouse (or local DuckDB).
+cloud. Ignore "dltHub Pro" / dlt+ managed runtime entirely. Nothing egresses as long as the
+destination is your own warehouse (or local DuckDB).
 
 ## Install
 

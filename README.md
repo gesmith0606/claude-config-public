@@ -90,6 +90,46 @@ Need different permissions or env on one machine? Drop a gitignored `settings.lo
 `settings.json` — it deep-merges over the tracked config without forking it. Keep machine-specific
 *paths* in `machine.json`, machine-specific *harness settings* in `settings.local.json`.
 
+## Adopting this on a machine that already has a ~/.claude
+
+**This repo is the source of truth.** Adoption overwrites whatever the machine had; nothing from
+the old config is migrated forward. Take a backup for recovery, not for merging.
+
+`git clone` refuses a non-empty directory, so the repo is adopted in place:
+
+```sh
+mv ~/.claude ~/.claude.bak                     # full recovery copy
+mkdir ~/.claude && cd ~/.claude
+git clone <repo-url> .
+# bring back ONLY live runtime state — history, transcripts, installed plugins:
+for d in projects sessions history.jsonl plugins shell-snapshots; do
+  [ -e ~/.claude.bak/$d ] && cp -R ~/.claude.bak/$d ~/.claude/$d
+done
+sh bootstrap.sh
+```
+
+Everything restored in that loop is ignored by the `/*` allowlist, so it never enters git. Anything
+*not* in the loop — old `settings.json`, loose `agents/`, stray `skills/`, an old statusline — is
+deliberately left behind. If a machine had something worth keeping, the fix is to add it to this
+repo so every machine gets it, not to preserve it locally.
+
+Expect the harness to change on a machine that had its own setup: model, permission mode, enabled
+plugins, hooks, and statusline all become whatever `settings.json` here says. That is the point.
+Genuinely per-machine values (paths, an override you want on one box only) go in the gitignored
+`machine.json` / `settings.local.json` **after** adoption.
+
+## Secret-read guards
+
+`settings.json` → `permissions.deny` blocks the **Read** tool against `.env`, SSH/AWS/GCloud
+credentials, keys, and browser cookie stores, and pairs each with `Bash(<reader> <target>)` rules
+covering `cat`/`head`/`tail`/`less`/`strings`.
+
+Treat the Bash half as a **speed bump, not a boundary.** Read rules are exact; shell rules can only
+match command strings, and a shell has unlimited ways to read a file (`grep`, `<`, `python -c`,
+`base64`, a subshell). The rules stop the obvious accidental path. They do not contain a determined
+one — that is what the deny-list on the Read tool, and not routing secrets through the agent in the
+first place, are for.
+
 ## Public mirror
 
 This repo (`origin`, **private**) keeps the full history. A **squashed, single-commit public
@@ -132,5 +172,5 @@ authored here. Bundled third-party material keeps its own license and is **not**
 
 If you own any of the above and want attribution changed or content removed, open an issue.
 
-Nothing here is intended as, or a substitute for, an employer's own tooling policy — the
-confidentiality rules in `CLAUDE.md` are one person's personal defaults, not a compliance standard.
+Nothing here is a policy document — the conventions in `CLAUDE.md` are one person's personal
+defaults for their own machines, not a standard for anyone else.

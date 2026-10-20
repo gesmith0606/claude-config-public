@@ -1,19 +1,12 @@
-# Contexts & confidentiality
+# Machines & contexts
 
-This config is shared (via the `claude-config` git repo) across a personal Windows gaming PC, a
-MacBook Pro, and a work Windows laptop. Two working contexts use it:
+This config is shared (via the `claude-config` git repo) across a personal Windows gaming PC and a
+MacBook Pro. It is a general-purpose setup for engineering work and daily use — there is no
+work/employer context, and nothing here should assume one.
 
-- **Work — confidential financial data.** Treat client, financial, MNPI, and PII
-  data as confidential by default. **Never send it to third-party/hosted services** — image-cloud
-  (→ Pollinations), hosted LLM APIs, `WebFetch`/`WebSearch`, public paste sites. For any real-person
-  likeness use `comfyui-local-image`, never `image-cloud`. Never commit data rows, notebook outputs,
-  or credentials. **Do not write client/financial/PII into the shared knowledge-vault** — keep work
-  learnings in that machine's *local* vault only (per-machine `machine.json` `knowledgeVaultPath`).
-  On the work laptop, prefer a gitignored `settings.local.json` that drops the `Bash(gws:*)` allow
-  (so outbound email/Drive writes prompt) and sets `skipDangerousModePermissionPrompt: false`.
-- **Personal — NFL data-engineering website.** Keep project specifics (warehouse schema, data
-  dictionary, ingestion→transform→publish DAG, source-of-truth notes) in a *project-scoped*
-  `CLAUDE.md` inside that repo, not here.
+- **Project specifics belong in the project.** Keep warehouse schemas, data dictionaries,
+  ingestion→transform→publish DAGs, and source-of-truth notes in a *project-scoped* `CLAUDE.md`
+  inside that repo (e.g. the NFL data-engineering website), not here.
 
 # Memory system (cross-project)
 
@@ -100,7 +93,7 @@ Adopted defaults (prefer these when the need arises):
 - **anydoc** (`firecrawl/anydoc`) — local Rust doc→Markdown converter (docx/pptx/xlsx/PDF).
   Installed (vetted clean 2026-08) as the single-file skill
   `~/.claude/skills/convert-documents-to-markdown/SKILL.md`, so it syncs with this repo — no
-  per-machine install. Runtime pinned to `@firecrawl/anydoc@0.1.7`; fully local (no egress),
+  per-machine install. Runtime pinned to `@firecrawl/anydoc@0.2.4`; fully local (no egress),
   but it has **no OCR** — scanned PDFs go through the local `pdf` skill, never the hosted
   Firecrawl Parse API.
 - **Playwright** — the local browser-automation engine. Prefer the **Playwright CLI**
@@ -126,9 +119,15 @@ This folder must run identically on Windows + macOS. Keep it portable:
   `os.homedir()` — never hardcode `C:\Users\...` or absolute paths in tracked config. Requires
   `node` on PATH in the *non-interactive* hook environment (verify on macOS where nvm/Homebrew may
   not export it to non-login shells).
-- Bundled skill scripts (docx/pptx/xlsx/pdf, image skills) need **Python 3**. Invoke with the right
-  per-machine launcher: `python3` on macOS; on Windows a real interpreter or `py -3`, **not** the
-  Microsoft Store `python` stub (which silently no-ops).
+- Bundled skill scripts (docx/pptx/xlsx/pdf, image skills) need **Python 3** *plus* third-party
+  packages (`openpyxl`, `pypdf`, `Pillow`). `bootstrap.sh` provisions a venv at `~/.claude/.venv`
+  and records it as `pythonPath` in `machine.json` — macOS/Homebrew pythons are PEP 668
+  "externally managed" and refuse `pip install`, so the venv is not optional there. Resolve the
+  interpreter via `scripts/claude-paths.js` → `getPythonPath()` rather than assuming `python3`;
+  on Windows it falls back to `py -3`, never the Microsoft Store `python` stub (which no-ops).
+- Machine dependencies are declared once in `scripts/dependencies.json` and consumed by
+  `detect-capabilities.js` (probes) and `health-check.js` (reports). Add a dependency there —
+  a dep listed in only one consumer is one that silently never gets checked.
 - Per-machine paths (vault, browser, gcloud SDK) belong in gitignored `machine.json`. A fresh clone
   becomes functional via the per-machine setup in `README.md` (copy `machine.example.json` →
   `machine.json`, set `knowledgeVaultPath`, confirm `node`/`gws`/`gcloud`).

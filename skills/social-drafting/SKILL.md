@@ -11,11 +11,9 @@ description: >-
 
 Draft-only. No OAuth tokens. No posting. No scheduling. The human copy-pastes and posts manually — full stop.
 
-**Why this boundary is hard:** Auto-posting is irreversible and outward-facing. In a regulated
-finance role, anything that reads as market commentary is a compliance and reputational hazard. This
-config is also git-synced across a work laptop — social OAuth tokens must never live here. If
-personal-only scheduling is ever wanted (e.g. Postiz in Docker on the gaming PC), that is a
-separate, later, out-of-scope decision.
+**Why this boundary is hard:** Auto-posting is irreversible and outward-facing. This config is
+git-synced across machines — social OAuth tokens must never live here. If scheduling is ever
+wanted (e.g. Postiz in Docker on the gaming PC), that is a separate, later, out-of-scope decision.
 
 Egress: zero. This skill is a local cheatsheet + drafting prompt only.
 
@@ -131,6 +129,6 @@ Link or CTA here.
 
 ## Handoffs
 
-- **Visuals / image assets** — hand off to `design` (layout/brand) or `comfyui-local-image` (local AI generation, required for any real-person likeness on the work machine)
+- **Visuals / image assets** — hand off to `design` (layout/brand) or `image-cloud` (AI generation; `comfyui-local-image` is the local alternative, gaming PC only)
 - **Long-form content** (articles, newsletters, ghostwriting) — `doc-coauthoring`
 - **Posting / scheduling** — intentionally out of scope; use the platform's native scheduler manually

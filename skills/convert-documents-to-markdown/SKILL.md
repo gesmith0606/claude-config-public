@@ -11,16 +11,16 @@ metadata:
 Run the anydoc CLI. It needs Node 20+ and no install:
 
 ```bash
-npx -y @firecrawl/anydoc@0.1.7 <file>              # Markdown to stdout
-npx -y @firecrawl/anydoc@0.1.7 <file> -o out.md    # write to a file
-npx -y @firecrawl/anydoc@0.1.7 - --format csv < f  # read stdin
+npx -y @firecrawl/anydoc@0.2.4 <file>              # Markdown to stdout
+npx -y @firecrawl/anydoc@0.2.4 <file> -o out.md    # write to a file
+npx -y @firecrawl/anydoc@0.2.4 - --format csv < f  # read stdin
 ```
 
 Rules:
 
 1. Supported inputs: `.doc`, `.docx`, `.docm`, `.odt`, `.rtf`, `.epub`, `.pdf`, `.ppt`, `.pps`, `.pot`, `.pptx`, `.pptm`, `.ppsx`, `.ppsm`, `.odp`, `.xls`, `.xlsx`, `.xlsm`, `.xlsb`, `.ods`, `.csv`.
 2. The format is detected from the file content. Pass `--format <name>` only when detection cannot work: CSV from stdin, or a missing or wrong extension.
-3. Exit codes: 0 success, 1 the document could not be converted, 2 usage error. Failures print one `anydoc: <message>` line to stderr. The CLI never prompts.
+3. Exit codes: 0 success, 1 the document could not be converted, 2 usage error, 3 pages of a PDF need OCR. Failures print one `anydoc: <message>` line to stderr. The CLI never prompts.
 4. For a large document, write to a file with `-o` and read the parts you need instead of streaming everything into context.
-5. Scanned and image-only PDFs need OCR, which anydoc does not do; they fail as unsupported. Use the local `pdf` skill's OCR path instead. NEVER upload documents to the hosted Firecrawl Parse API — confidential/work documents must not egress to third-party services.
+5. Scanned and image-only pages need OCR, which anydoc does not do, so the document exits 3. Route it to the local `pdf` skill's OCR path instead. NEVER pass `--ocr hosted` and NEVER upload documents to the hosted Firecrawl Parse API — confidential/work documents must not egress to third-party services.
 6. Inside a Node, Python, or Rust codebase, prefer the library over shelling out: `@firecrawl/anydoc` on npm, `firecrawl-anydoc` on PyPI, `anydoc` on crates.io. Each exposes the same `to_markdown` / `toMarkdown` API.

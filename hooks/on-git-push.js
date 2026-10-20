@@ -22,7 +22,21 @@ process.stdin.on("end", () => {
   const cmd = (data && data.tool_input && data.tool_input.command) || "";
 
   // Match an actual git push; ignore dry-runs and incidental mentions of "push".
-  const isPush = /(^|[;&|]|\s)git(\s+-\S+)*\s+push\b/.test(cmd);
+  // Tokenised rather than regexed: the old pattern allowed `git -x push` but not
+  // options that take a SEPARATE value, so `git -C <path> push` never fired. It also
+  // matched after any whitespace, so `echo "... git push ..."` fired a false positive.
+  // Only a segment that *starts* a command counts, and git's global options (with
+  // their values) are skipped before looking for the subcommand.
+  const GIT_OPTS_WITH_VALUE = new Set(["-C", "-c", "--git-dir", "--work-tree", "--namespace", "--exec-path"]);
+  const isPush = cmd.split(/[;&|]+/).some((segment) => {
+    const toks = segment.trim().split(/\s+/);
+    if (toks[0] !== "git") return false;
+    let i = 1;
+    while (i < toks.length && toks[i].startsWith("-")) {
+      i += GIT_OPTS_WITH_VALUE.has(toks[i]) ? 2 : 1;
+    }
+    return toks[i] === "push";
+  });
   const isDryRun = /--dry-run\b/.test(cmd);
   if (!isPush || isDryRun) process.exit(0);
 

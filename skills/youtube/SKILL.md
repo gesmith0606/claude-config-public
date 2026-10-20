@@ -12,7 +12,9 @@ visuals and never hits YouTube's bot checks or caption PO-token wall.
 - CLI source: `%USERPROFILE%\tools\yt-cli\yt` (Python 3; needs `yt-dlp`, `google-genai`)
 - Wrapper on PATH: `%USERPROFILE%\tools\bin\yt.cmd`
 - If `yt` is not found: `python "$env:USERPROFILE\tools\yt-cli\yt" <args>`
-- Gemini key: read at runtime from Bitwarden Secrets Manager (secret `GEMINI_API_KEY`) via `bws`, using the machine-account token in Windows Credential Manager (keyring service `bws`, user `access-token`). A `GEMINI_API_KEY` env var overrides it. Search needs no key. Never print the key or token.
+- Gemini key: resolve it through this config's standard backend (env → OS keychain → Bitwarden `bw`; see the `bitwarden` skill) and pass it as the `GEMINI_API_KEY` env var, which the CLI honours:
+  `GEMINI_API_KEY="$(node ~/.claude/scripts/resolve-secret.js GEMINI_API_KEY)" yt summary <url>`
+  If it exits 2 the vault is locked (`bwu`) or the item is missing (`bw-add-secret.js`). Search needs no key. Never print the key.
 
 ## Commands
 

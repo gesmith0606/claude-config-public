@@ -2,9 +2,10 @@
 name: image-cloud
 description: >-
   Generate an image from a text prompt via a FREE hosted service (Pollinations) — no API key, GPU,
-  or setup, but the prompt egresses to a third party. Use for quick or throwaway images where
-  privacy is not a concern: concept art, illustrations, backgrounds, placeholders, mood boards.
-  NEVER for a real person's likeness/face — that stays local via `comfyui-local-image`.
+  or setup, but the prompt egresses to a third party. Use whenever the user wants an image
+  generated, drawn, rendered, or illustrated — concept art, illustrations, backgrounds,
+  placeholders, mood boards, portraits — on any machine. Reach for `comfyui-local-image` instead
+  only when an image must not leave the machine; it runs on the Windows gaming PC alone.
 ---
 
 # image-cloud (hosted image generation — free, no key)
@@ -15,14 +16,15 @@ GPU — one HTTP call returns the image. This is the convenient, zero-setup coun
 
 ## When to use which skill
 
-- **This skill (`image-cloud`)** — quick / casual / non-private images: concept art, illustrations,
-  backgrounds, placeholders, stock-style pictures, things with no real person involved. Fast, free,
-  nothing to launch.
-- **`comfyui-local-image` (local)** — anything involving a **real person's / client's likeness**, or that must
-  stay 100% private. Runs on the user's GPU; the image never leaves the machine.
+- **This skill (`image-cloud`)** — the default for image generation: concept art, illustrations,
+  backgrounds, placeholders, stock-style pictures, portraits. Fast, free, nothing to launch, and it
+  works on every machine.
+- **`comfyui-local-image` (local)** — for images that must stay entirely on-machine. Needs a running
+  ComfyUI + GPU, so it is available **only on the Windows gaming PC** — not the MacBook.
 
-**Hard rule:** if a real human face/likeness is involved, use `comfyui-local-image`, never this skill — the
-prompt and image are sent to a third party here.
+**Know the tradeoff:** the prompt and the resulting image are sent to Pollinations, a third party.
+That is the price of zero setup. When something must not leave the machine, use
+`comfyui-local-image` on the gaming PC instead.
 
 ## The one rule: always use the bundled script
 

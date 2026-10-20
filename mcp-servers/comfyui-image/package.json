@@ -3,10 +3,20 @@
   "version": "1.0.0",
   "description": "Local MCP server exposing ComfyUI image generation (txt2img + PuLID persona) as a tool for any MCP-capable agent.",
   "type": "module",
-  "bin": { "comfyui-image-mcp": "server.js" },
-  "scripts": { "start": "node server.js" },
+  "bin": {
+    "comfyui-image-mcp": "server.js"
+  },
+  "scripts": {
+    "start": "node server.js"
+  },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
     "zod": "^3.23.8"
+  },
+  "claudeHarness": {
+    "platforms": [
+      "win32"
+    ],
+    "why": "drives a local ComfyUI instance on a GPU \u2014 the Windows gaming PC only"
   }
 }

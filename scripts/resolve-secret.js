@@ -132,21 +132,92 @@ function from1Password(name) {
   return null;
 }
 
+// Diagnostics go to stderr only — stdout is reserved for the secret value.
+let warnedBackends = new Set();
+function backendWarn(key, msg) {
+  if (warnedBackends.has(key)) return;
+  warnedBackends.add(key);
+  process.stderr.write(`resolve-secret: ${msg}\n`);
+}
+
+function bwRun(args) {
+  return spawnSync("bw", args, { encoding: "utf8", timeout: 10000 });
+}
+
+// Report WHY the vault was unusable, once per process. A locked or logged-out
+// vault otherwise looks identical to a missing entry.
+function bwDiagnose(r) {
+  const err = `${(r && r.stderr) || ""} ${(r && r.stdout) || ""}`.toLowerCase();
+  if (/not logged in|you are not logged in/.test(err)) {
+    backendWarn("bw-login", "bitwarden CLI is not logged in — run: bw login");
+    return true;
+  }
+  if (/locked|bw_session|session key|master password/.test(err)) {
+    backendWarn("bw-lock", "bitwarden vault is locked — run: bwu   (or: export BW_SESSION=$(bw unlock --raw))");
+    return true;
+  }
+  return false;
+}
+
+// Field names people conventionally use when a credential is NOT the password
+// field — checked only after an exact match on the secret's own name.
+const BW_VALUE_FIELDS = ["value", "token", "secret", "key", "api_key", "apikey", "webhook"];
+
 function fromBitwarden(name) {
   if (!cliOnPath("bw")) return null;
   try {
-    const r = spawnSync("bw", ["get", "password", name], {
-      encoding: "utf8",
-      timeout: 10000,
-    });
-    if (r.status === 0 && r.stdout && r.stdout.trim()) {
-      return r.stdout.trim();
+    // 1. The login item's password field — the common case.
+    // `bw` reads BW_SESSION from the environment; spawnSync inherits process.env
+    // by default, so an unlocked session in the caller's shell reaches the child.
+    const pw = bwRun(["get", "password", name]);
+    if (pw.status === 0 && pw.stdout && pw.stdout.trim()) return pw.stdout.trim();
+    if (bwDiagnose(pw)) return null; // locked/logged-out — no point trying other shapes
+
+    // 2. `bw get password` reads ONLY the password field, so an API key kept in a
+    //    custom field or a secure note reads as "not found" even though it is right
+    //    there. Fall back to the full item and look where people actually put them.
+    const raw = bwRun(["get", "item", name]);
+    if (raw.status !== 0 || !raw.stdout) { bwDiagnose(raw); return null; }
+
+    let item;
+    try { item = JSON.parse(raw.stdout); } catch { return null; }
+
+    const fields = Array.isArray(item.fields) ? item.fields : [];
+    const valued = fields.filter((f) => f && typeof f.value === "string" && f.value.trim());
+
+    // Exact field-name match wins — an item may legitimately carry several secrets.
+    const exact = valued.find((f) => (f.name || "").trim() === name);
+    if (exact) return exact.value.trim();
+
+    const conventional = valued.find((f) =>
+      BW_VALUE_FIELDS.includes((f.name || "").trim().toLowerCase())
+    );
+    if (conventional) return conventional.value.trim();
+
+    // A lone custom field is unambiguous.
+    if (valued.length === 1) return valued[0].value.trim();
+
+    // 3. Secure note (type 2) whose body is a single line — the classic
+    //    "paste the token into the note" pattern. Multi-line notes are prose, not
+    //    a credential, so they are deliberately NOT returned.
+    if (item.type === 2 && typeof item.notes === "string") {
+      const body = item.notes.trim();
+      if (body && !body.includes("\n")) return body;
+    }
+
+    if (valued.length > 1) {
+      backendWarn(
+        `bw-ambiguous-${name}`,
+        `bitwarden item "${name}" has ${valued.length} custom fields and none named "${name}" — ` +
+          `rename the right one to "${name}" so it resolves unambiguously`
+      );
     }
   } catch {
     // best-effort
   }
   return null;
 }
+
 
 // ---------------------------------------------------------------------------
 // Main resolver

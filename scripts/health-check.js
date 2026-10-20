@@ -25,7 +25,7 @@ const fs = require("fs");
 const os = require("os");
 const path = require("path");
 const { spawnSync } = require("child_process");
-const { getClaudeHome, getKnowledgeVaultPath } = require("./claude-paths");
+const { getClaudeHome, getKnowledgeVaultPath, getPythonPath } = require("./claude-paths");
 
 const HOME = getClaudeHome();
 const DAY = 24 * 60 * 60 * 1000;
@@ -39,6 +39,16 @@ const BUDGET = {
   manifestMaxAgeDays: 30,
   vaultStaleDays: 21,
 };
+
+// Shared dependency manifest — the one place a dep is declared.
+const DEPS = (() => {
+  try { return JSON.parse(fs.readFileSync(path.join(__dirname, "dependencies.json"), "utf8")); }
+  catch { return { clis: [], python: [] }; }
+})();
+function installHint(dep) {
+  const i = dep.install || {};
+  return i[process.platform] || i.default || "see dependencies.json";
+}
 
 let failures = 0;
 let warnings = 0;
@@ -77,11 +87,51 @@ else {
   if (ageDays > BUDGET.manifestMaxAgeDays) warn(`manifest is ${ageDays}d old — re-run detect-capabilities.js`);
   else ok(`manifest fresh (${ageDays}d old)`);
   const tools = (machine.capabilities && machine.capabilities.tools) || {};
-  // CLIs that installed skills directly depend on.
-  const skillDeps = ["duckdb", "jq", "pandoc", "tesseract", "qpdf", "rg", "gh", "gws", "ffmpeg"];
-  const missing = skillDeps.filter((t) => tools[t] && !tools[t].present);
-  if (missing.length) warn(`skill-backing CLIs absent: ${missing.join(", ")}`);
-  else ok("all skill-backing CLIs present");
+  // Dependency list is shared with detect-capabilities.js + bootstrap.sh via
+  // scripts/dependencies.json. Previously this array was hardcoded here and drifted:
+  // it named qpdf, which detect-capabilities never probed, and the `tools[t] &&`
+  // guard turned that into a silent pass. Unprobed deps are now reported, not skipped.
+  const missing = [], unprobed = [];
+  for (const dep of DEPS.clis) {
+    const probe = tools[dep.name];
+    if (!probe) { unprobed.push(dep.name); continue; }
+    if (!probe.present) missing.push(dep);
+  }
+  const req = missing.filter((d) => d.required).map((d) => d.name);
+  const opt = missing.filter((d) => !d.required);
+  if (req.length) fail(`required CLIs absent: ${req.join(", ")}`);
+  if (opt.length) {
+    warn(`optional skill-backing CLIs absent: ${opt.map((d) => d.name).join(", ")}`);
+    for (const d of opt) lines.push(`          ${d.name} — ${d.why}; ${installHint(d)}`);
+  }
+  if (unprobed.length) warn(`declared but never probed (add to detect-capabilities.js PROBES): ${unprobed.join(", ")}`);
+  if (!req.length && !opt.length && !unprobed.length) ok("all declared CLIs present");
+}
+
+// 2b. python runtime for bundled skill scripts --------------------------------
+section("python (bundled skill scripts)");
+{
+  const py = getPythonPath();
+  const usingVenv = py.includes(path.join(".venv", ""));
+  const mods = DEPS.python.map((m) => m.module);
+  // NB: `import importlib` alone does not bind importlib.util — import the submodule.
+  const probe = run(py, ["-c", `import importlib.util
+missing=[m for m in ${JSON.stringify(mods)} if importlib.util.find_spec(m) is None]
+print("MISSING:" + ",".join(missing))`]);
+  if (probe === null) {
+    fail(`python not runnable at '${py}' — run bootstrap.sh, or set pythonPath in machine.json`);
+  } else {
+    ok(`interpreter: ${py}${usingVenv ? " (bootstrap venv)" : " (system)"}`);
+    const absent = (probe.split("MISSING:")[1] || "").split(",").filter(Boolean);
+    if (absent.length) {
+      const pkgs = DEPS.python.filter((m) => absent.includes(m.module));
+      fail(`python packages missing: ${pkgs.map((m) => m.package).join(", ")} — the xlsx/pdf/image skills will fail at run time`);
+      lines.push(`          fix: sh bootstrap.sh   (creates ${path.join(HOME, ".venv")} and installs them)`);
+      if (!usingVenv) lines.push("          note: a Homebrew/system python is PEP 668 managed — plain 'pip install' is refused, hence the venv");
+    } else {
+      ok(`packages present: ${mods.join(", ")}`);
+    }
+  }
 }
 
 // 3. routines policy ----------------------------------------------------------
@@ -109,6 +159,28 @@ const leakPatterns = [
 const leaks = leakPatterns.filter(([re]) => re.test(machineRaw)).map(([, name]) => name);
 if (leaks.length) fail(`${leaks.join(", ")} hardcoded in machine.json — move behind resolve-secret.js (*Secret name)`);
 else ok("no raw webhooks/tokens (uses *Secret indirection)");
+
+// 4b. secrets backend reachability --------------------------------------------
+section("secrets backend");
+{
+  const backend = (machine.secrets && machine.secrets.backend) || "auto";
+  ok(`backend: ${backend}`);
+  const bwInChain = backend === "auto" || backend === "bitwarden";
+  const bwPresent = !!((machine.capabilities && machine.capabilities.tools || {}).bw || {}).present;
+  if (bwInChain && bwPresent) {
+    const out = run("bw", ["status"]);
+    let state = null;
+    try { state = (JSON.parse(out || "{}") || {}).status || null; } catch { /* ignore */ }
+    if (!state) warn("bitwarden: could not read `bw status`");
+    else if (state === "unauthenticated") fail("bitwarden: not logged in — run: bw login");
+    // "locked" is the normal resting state between shells, NOT a problem: warning on it
+    // every run is the kind of permanent noise that trains people to ignore warnings.
+    else if (state === "locked") ok("bitwarden: logged in, vault locked (unlock per shell with `bwu`)");
+    else ok(`bitwarden: ${state}`);
+  } else if (bwInChain && !bwPresent) {
+    warn("bitwarden is in the backend chain but `bw` is not installed");
+  }
+}
 
 // 5. context weight -----------------------------------------------------------
 section("per-session context weight");
@@ -196,8 +268,20 @@ section("local MCP servers");
 try {
   for (const d of fs.readdirSync(path.join(HOME, "mcp-servers"))) {
     const dir = path.join(HOME, "mcp-servers", d);
-    if (!fs.existsSync(path.join(dir, "package.json"))) continue;
-    (fs.existsSync(path.join(dir, "node_modules")) ? ok : warn)(`${d}: deps ${fs.existsSync(path.join(dir, "node_modules")) ? "installed" : "MISSING — run npm install"}`);
+    const pkgPath = path.join(dir, "package.json");
+    if (!fs.existsSync(pkgPath)) continue;
+    // A server may declare the platforms it can run on (claudeHarness.platforms).
+    // Nagging about missing deps for a server this machine can never run is noise,
+    // and a check that always warns is a check people learn to ignore.
+    let pkg = {};
+    try { pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8")); } catch { /* treat as unrestricted */ }
+    const platforms = (pkg.claudeHarness && pkg.claudeHarness.platforms) || null;
+    if (platforms && !platforms.includes(process.platform)) {
+      ok(`${d}: n/a on ${process.platform} (needs ${platforms.join("/")}) — skipped`);
+      continue;
+    }
+    const installed = fs.existsSync(path.join(dir, "node_modules"));
+    (installed ? ok : warn)(`${d}: deps ${installed ? "installed" : "MISSING — run npm install"}`);
   }
 } catch { ok("no local MCP servers"); }
 

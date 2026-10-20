@@ -86,8 +86,8 @@ so you know the local path exists when you need music, not just narration.
 
 ## Egress summary
 
-| Tool | Egress | Work laptop? |
-|------|--------|--------------|
-| Kokoro | Local only (weights downloaded once) | Yes |
-| ACE-Step | Local only (GPU) | Yes — no confidential data in prompts |
-| edge-tts | Microsoft servers | **Never for work** |
+| Tool | Egress | Notes |
+|------|--------|-------|
+| Kokoro | Local only (weights downloaded once) | Default choice |
+| ACE-Step | Local only (GPU) | Gaming PC only (needs GPU) |
+| edge-tts | Microsoft servers | Text you narrate leaves the machine |

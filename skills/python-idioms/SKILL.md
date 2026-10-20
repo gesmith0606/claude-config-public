@@ -158,4 +158,4 @@ Start cheap; escalate only when the previous step doesn't answer the question.
 
 ---
 
-All tooling runs locally. No egress. Safe on both the personal machine and the work laptop.
+All tooling runs locally. No egress.

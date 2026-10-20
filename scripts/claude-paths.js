@@ -58,7 +58,38 @@ function getBrowserHarnessOverrides() {
   };
 }
 
+
+// Python interpreter for bundled skill scripts. macOS/Homebrew pythons are
+// PEP 668 "externally managed", so `pip install` into them is refused — bootstrap
+// provisions a venv at <claude home>/.venv instead and records it here. Order:
+// explicit env → machine.json → the bootstrap venv → the per-OS system launcher.
+function getPythonPath() {
+  const config = getMachineConfig();
+  const explicit = process.env.CLAUDE_PYTHON || config.pythonPath;
+  if (explicit) return explicit;
+
+  const isWin = process.platform === "win32";
+  const venv = path.join(
+    getClaudeHome(),
+    ".venv",
+    isWin ? "Scripts" : "bin",
+    isWin ? "python.exe" : "python3"
+  );
+  if (fs.existsSync(venv)) return venv;
+
+  // No venv: fall back to the system launcher. On Windows prefer `py -3` over the
+  // bare `python` Store stub, which silently no-ops.
+  return isWin ? "py" : "python3";
+}
+
+// Args that must precede the script path for the resolved interpreter ( `py` needs -3 ).
+function getPythonArgs() {
+  return getPythonPath() === "py" ? ["-3"] : [];
+}
+
 module.exports = {
+  getPythonArgs,
+  getPythonPath,
   getBrowserHarnessOverrides,
   getClaudeHome,
   getKnowledgeVaultPath,

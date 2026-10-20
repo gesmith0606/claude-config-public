@@ -1,25 +1,33 @@
 {
   "knowledgeVaultPath": "/absolute/path/to/knowledge-vault",
+  "_pythonPath_comment": "Interpreter for bundled skill scripts. Written by bootstrap.sh, which creates ~/.claude/.venv because Homebrew/system pythons are PEP 668 externally-managed and refuse `pip install`. Leave null to fall back to python3 / py -3.",
+  "pythonPath": null,
   "preferredImageSaveDir": "/absolute/path/to/preferred-image-output",
   "browserHarnessBrowserPath": "/absolute/path/to/browser",
   "browserHarnessProfileDir": "/absolute/path/to/browser-profile",
-
   "secrets": {
     "_comment": "How scripts/resolve-secret.js finds credentials. 'auto' tries env -> OS keychain -> password-manager CLI (op/bw). Pin one: env | keychain | 1password | bitwarden.",
     "backend": "auto"
   },
-
   "notify": {
-    "_comment": "How autonomous/scheduled runs reach you (scripts/notify.js). Set 'channel' to one of: email | telegram | discord | slack | stdout. PREFERRED: for discord/slack set 'webhookSecret' to a secret NAME resolved at runtime by scripts/resolve-secret.js (env var / OS keychain / op / bw) so no raw URL sits in this file. A raw 'webhook' URL still works but belongs in gitignored machine.json ONLY — never here.",
+    "_comment": "How autonomous/scheduled runs reach you (scripts/notify.js). Set 'channel' to one of: email | telegram | discord | slack | stdout. PREFERRED: for discord/slack set 'webhookSecret' to a secret NAME resolved at runtime by scripts/resolve-secret.js (env var / OS keychain / op / bw) so no raw URL sits in this file. A raw 'webhook' URL still works but belongs in gitignored machine.json ONLY \u2014 never here.",
     "channel": "email",
-    "email": { "to": "you@example.com" },
-    "telegram": { "token": "PLACEHOLDER_BOT_TOKEN", "chat_id": "PLACEHOLDER_CHAT_ID" },
-    "discord": { "webhookSecret": "DISCORD_WEBHOOK_CLAUDE" },
-    "slack": { "webhookSecret": "SLACK_WEBHOOK_CLAUDE" }
+    "email": {
+      "to": "you@example.com"
+    },
+    "telegram": {
+      "token": "PLACEHOLDER_BOT_TOKEN",
+      "chat_id": "PLACEHOLDER_CHAT_ID"
+    },
+    "discord": {
+      "webhookSecret": "DISCORD_WEBHOOK_CLAUDE"
+    },
+    "slack": {
+      "webhookSecret": "SLACK_WEBHOOK_CLAUDE"
+    }
   },
-
   "capabilities": {
-    "_comment": "Auto-written by scripts/detect-capabilities.js (also run by bootstrap) — do NOT hand-edit. Records which CLIs/runtimes this machine has, so CLI-first degrades gracefully. Shape per tool: { present, version, path }.",
+    "_comment": "Auto-written by scripts/detect-capabilities.js (also run by bootstrap) \u2014 do NOT hand-edit. Records which CLIs/runtimes this machine has, so CLI-first degrades gracefully. Shape per tool: { present, version, path }.",
     "detectedAt": null,
     "tools": {}
   }

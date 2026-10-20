@@ -46,6 +46,17 @@ def load_db_secret(name="prod/db"):
 Invoke Python as `python3` (on Windows the MS-Store `python` may be a stub; use
 `py -3` if `python3` is unavailable).
 
+## Local secrets: password-manager backends
+
+This config resolves credentials at runtime through `~/.claude/scripts/resolve-secret.js`:
+env var → OS keychain → `op` (1Password) → `bw` (Bitwarden). Pin one in `machine.json`
+(`secrets.backend`; default `auto`). Store secret **names** in config files, never values —
+`"webhookSecret": "DISCORD_WEBHOOK_CLAUDE"` — and health-check fails the run if a raw token
+appears in `machine.json`.
+
+For operating the Bitwarden CLI itself — unlocking, adding secrets, diagnosing "not found" —
+use the **`bitwarden`** skill.
+
 ## Connection strings without embedded passwords
 
 Never bake the password into a literal URL. Build it from resolved parts, or

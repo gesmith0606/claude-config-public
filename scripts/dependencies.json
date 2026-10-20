@@ -1,0 +1,262 @@
+{
+  "_comment": "Single source of truth for what this config needs on a machine. Read by health-check.js (reports drift) and detect-capabilities.js (probes CLIs). bootstrap.sh provisions the python venv from the 'python' list. Add a dep HERE, not in one of the consumers \u2014 a dep listed in only one place is a dep that silently never gets checked (qpdf was exactly that until 2026-08).",
+  "clis": [
+    {
+      "name": "node",
+      "required": true,
+      "why": "hooks, statusline, scripts",
+      "install": {
+        "darwin": "brew install node (or nvm)",
+        "win32": "winget install OpenJS.NodeJS",
+        "default": "install Node.js"
+      }
+    },
+    {
+      "name": "git",
+      "required": true,
+      "why": "this config syncs over git",
+      "install": {
+        "darwin": "xcode-select --install",
+        "win32": "winget install Git.Git",
+        "default": "install git"
+      }
+    },
+    {
+      "name": "python",
+      "required": true,
+      "why": "bundled skill scripts (docx/pptx/xlsx/pdf, image)",
+      "install": {
+        "darwin": "brew install python",
+        "win32": "winget install Python.Python.3.12",
+        "default": "install Python 3"
+      }
+    },
+    {
+      "name": "gh",
+      "required": false,
+      "why": "/brief, /pr, github-ops skill",
+      "install": {
+        "darwin": "brew install gh",
+        "win32": "winget install GitHub.cli",
+        "default": "install GitHub CLI"
+      }
+    },
+    {
+      "name": "gws",
+      "required": false,
+      "why": "gws-* Google Workspace skills",
+      "install": {
+        "darwin": "npm i -g @googleworkspace/cli",
+        "win32": "npm i -g @googleworkspace/cli",
+        "default": "npm i -g @googleworkspace/cli"
+      }
+    },
+    {
+      "name": "gcloud",
+      "required": false,
+      "why": "auth backing for gws",
+      "install": {
+        "darwin": "brew install --cask google-cloud-sdk",
+        "win32": "install Google Cloud SDK; reopen the terminal",
+        "default": "install Google Cloud SDK"
+      }
+    },
+    {
+      "name": "jq",
+      "required": false,
+      "why": "shell JSON handling",
+      "install": {
+        "darwin": "brew install jq",
+        "win32": "winget install jqlang.jq",
+        "default": "install jq"
+      }
+    },
+    {
+      "name": "rg",
+      "required": false,
+      "why": "fast search across skills",
+      "install": {
+        "darwin": "brew install ripgrep",
+        "win32": "winget install BurntSushi.ripgrep.MSVC",
+        "default": "install ripgrep"
+      }
+    },
+    {
+      "name": "duckdb",
+      "required": false,
+      "why": "duckdb-warehouse, sql-warehouse skills",
+      "install": {
+        "darwin": "brew install duckdb",
+        "win32": "winget install DuckDB.cli",
+        "default": "install duckdb"
+      }
+    },
+    {
+      "name": "pandoc",
+      "required": false,
+      "why": "document conversion skills",
+      "install": {
+        "darwin": "brew install pandoc",
+        "win32": "winget install JohnMacFarlane.Pandoc",
+        "default": "install pandoc"
+      }
+    },
+    {
+      "name": "qpdf",
+      "required": false,
+      "why": "pdf skill (linearize/repair)",
+      "install": {
+        "darwin": "brew install qpdf",
+        "win32": "winget install qpdf.qpdf",
+        "default": "install qpdf"
+      }
+    },
+    {
+      "name": "tesseract",
+      "required": false,
+      "why": "pdf skill OCR path",
+      "install": {
+        "darwin": "brew install tesseract",
+        "win32": "winget install UB-Mannheim.TesseractOCR",
+        "default": "install tesseract"
+      }
+    },
+    {
+      "name": "ffmpeg",
+      "required": false,
+      "why": "video-edit, tts-narration skills",
+      "install": {
+        "darwin": "brew install ffmpeg",
+        "win32": "winget install Gyan.FFmpeg",
+        "default": "install ffmpeg"
+      }
+    },
+    {
+      "name": "uv",
+      "required": false,
+      "why": "fast python runner used by 6 skills",
+      "install": {
+        "darwin": "brew install uv",
+        "win32": "winget install astral-sh.uv",
+        "default": "curl -LsSf https://astral.sh/uv/install.sh | sh"
+      }
+    },
+    {
+      "name": "pdftoppm",
+      "required": false,
+      "why": "pdf skill page rasterisation (poppler)",
+      "install": {
+        "darwin": "brew install poppler",
+        "win32": "install poppler for Windows",
+        "default": "install poppler-utils"
+      }
+    },
+    {
+      "name": "docker",
+      "required": false,
+      "why": "containerised workflows in 1 skill",
+      "install": {
+        "darwin": "brew install --cask docker",
+        "win32": "winget install Docker.DockerDesktop",
+        "default": "install Docker"
+      }
+    },
+    {
+      "name": "bw",
+      "required": false,
+      "why": "Bitwarden CLI \u2014 secrets backend for resolve-secret.js",
+      "install": {
+        "darwin": "brew install bitwarden-cli",
+        "win32": "winget install Bitwarden.CLI",
+        "default": "npm i -g @bitwarden/cli"
+      }
+    },
+    {
+      "name": "yt-dlp",
+      "required": false,
+      "why": "youtube skill search; video-edit downloads",
+      "install": {
+        "darwin": "brew install yt-dlp",
+        "win32": "winget install yt-dlp.yt-dlp",
+        "default": "uv tool install yt-dlp"
+      }
+    },
+    {
+      "name": "auto-editor",
+      "required": false,
+      "why": "video-edit skill silence/jump-cut pass",
+      "install": {
+        "darwin": "uv tool install auto-editor",
+        "win32": "uv tool install auto-editor",
+        "default": "uv tool install auto-editor"
+      }
+    },
+    {
+      "name": "pre-commit",
+      "required": false,
+      "why": "pre-commit-wiring skill",
+      "install": {
+        "darwin": "uv tool install pre-commit",
+        "win32": "uv tool install pre-commit",
+        "default": "uv tool install pre-commit"
+      }
+    },
+    {
+      "name": "gitleaks",
+      "required": false,
+      "why": "pre-commit-wiring secret scanning",
+      "install": {
+        "darwin": "brew install gitleaks",
+        "win32": "winget install Gitleaks.Gitleaks",
+        "default": "install gitleaks"
+      }
+    },
+    {
+      "name": "playwright",
+      "required": false,
+      "why": "animate skill renderer (needs Chromium: npx playwright install chromium)",
+      "install": {
+        "darwin": "npm i -g playwright && npx playwright install chromium",
+        "win32": "npm i -g playwright && npx playwright install chromium",
+        "default": "npm i -g playwright && npx playwright install chromium"
+      }
+    }
+  ],
+  "python": [
+    {
+      "module": "openpyxl",
+      "package": "openpyxl",
+      "why": "xlsx skill scripts"
+    },
+    {
+      "module": "pypdf",
+      "package": "pypdf",
+      "why": "pdf skill scripts"
+    },
+    {
+      "module": "PIL",
+      "package": "Pillow",
+      "why": "image + pptx thumbnail scripts"
+    },
+    {
+      "module": "defusedxml",
+      "package": "defusedxml",
+      "why": "docx/pptx/xlsx office scripts (safe XML parsing)"
+    },
+    {
+      "module": "lxml",
+      "package": "lxml",
+      "why": "docx/pptx/xlsx validate.py schema checks"
+    },
+    {
+      "module": "pdfplumber",
+      "package": "pdfplumber",
+      "why": "pdf skill text/table extraction"
+    },
+    {
+      "module": "pdf2image",
+      "package": "pdf2image",
+      "why": "pdf skill page rendering (needs poppler)"
+    }
+  ]
+}

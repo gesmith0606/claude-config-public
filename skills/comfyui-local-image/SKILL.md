@@ -3,8 +3,9 @@ name: comfyui-local-image
 description: >-
   Generate images locally through a running ComfyUI instance (Stable Diffusion / SDXL / Flux,
   IP-Adapter, PuLID/InsightFace face-consistency) on the user's own GPU — nothing leaves the
-  machine. Use whenever the user wants to create or render an image, art, a portrait, or a
-  persona/likeness; MANDATORY over any hosted API when a real person's face is involved.
+  machine. Requires a running local ComfyUI and a GPU, so it works only on the Windows gaming PC,
+  never the MacBook. Use when an image must stay entirely on-machine; for everyday image
+  generation prefer `image-cloud`.
 ---
 
 # ComfyUI (local image generation)
@@ -118,11 +119,12 @@ Staging (`~/comfy_out/` and the scratchpad) is ephemeral/working space — fine 
 the user doesn't browse it. The approved keep-folder copy is the only "real" output, and only
 when asked.
 
-## Privacy (non-negotiable for likeness)
+## Privacy
 
-When a real person's / client's likeness is involved, this local path is the *only* acceptable
-one — never fall back to a hosted image API (Pollinations, HF, Replicate, OpenAI, etc.) for those
-images. Local generation keeps the likeness on the user's machine, under their control.
+Local generation keeps the image on the user's machine, under their control — that is the reason
+to reach for this skill over a hosted API. Use it when an image genuinely must not leave the
+machine. It is not the default: everyday image generation goes through `image-cloud`, and this
+path is unavailable on the MacBook (no local ComfyUI/GPU).
 
 ## Video (local, same ComfyUI + GPU)
 

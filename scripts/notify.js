@@ -73,11 +73,20 @@ function buildRfc822(to, from, subject, body) {
  */
 function sendViaEmail(title, message, emailCfg) {
   // No hardcoded fallback address: a missing notify.email.to must NOT silently send
-  // to a personal inbox (a data-egress risk on the work laptop, and PII in shared code).
+  // to an unintended inbox (a data-egress risk, and PII in shared code).
   // Throwing here is caught by notify() and falls through to the safe stdout channel.
   const to = emailCfg && emailCfg.to;
   if (!to) {
     throw new Error("notify.email.to required in machine.json for the email channel");
+  }
+  // machine.json is seeded from machine.example.json, so an unconfigured machine carries
+  // a placeholder address. Guarding only on "missing" let that placeholder through and
+  // would send real notification content (briefs contain calendar + mail + PR detail) to
+  // a domain the user does not control. Treat a known placeholder as unconfigured.
+  if (/@example\.(com|org|net)$/i.test(to) || /^(you|user|me|changeme)@/i.test(to)) {
+    throw new Error(
+      `notify.email.to is still a placeholder ("${to}") — set a real address in machine.json`
+    );
   }
   const raw = toBase64url(buildRfc822(to, to, `[Claude] ${title}`, message));
   const jsonBody = JSON.stringify({ raw });

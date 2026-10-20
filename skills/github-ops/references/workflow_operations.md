@@ -2,6 +2,10 @@
 
 Comprehensive guide for GitHub Actions workflow management using gh CLI.
 
+All writes follow the target, authorization, impact-preview, and independent-readback contract
+in [operating and checked-invocation contract](../SKILL.md#universal-operating-contract). Workflow dispatch, rerun, cancel, enable/disable, secret writes,
+and history deletion are external state changes; a command receipt is not terminal evidence.
+
 ## Listing Workflows
 
 ### View Available Workflows
@@ -150,8 +154,9 @@ gh run watch run-id --interval 10
 ### Retrieve Run Data
 
 ```bash
-# Download workflow run logs
-gh run download run-id
+# Print or save workflow logs
+gh run view run-id --log
+gh run view run-id --log > run-id.log
 
 # Download specific artifact
 gh run download run-id --name artifact-name
@@ -159,8 +164,9 @@ gh run download run-id --name artifact-name
 # Download to specific directory
 gh run download run-id --dir ./downloads
 
-# List available artifacts
-gh run view run-id --log | grep "artifact"
+# List available artifacts for a run
+gh api "repos/OWNER/REPO/actions/runs/run-id/artifacts" \
+  --jq '.artifacts[] | {id,name,size_in_bytes,expired}'
 ```
 
 ---
@@ -229,19 +235,48 @@ gh run list --workflow=ci --limit 100 --json conclusion | \
 
 ### Managing Multiple Runs
 
+Freeze and preview run IDs before any control operation. Do not pipe a changing run query directly
+into `xargs`.
+
 ```bash
-# Cancel all running workflows
-gh run list --status in_progress --json databaseId -q '.[].databaseId' | \
-  xargs -I {} gh run cancel {}
+# Freeze and display cancellation candidates
+cancel_targets=$(gh run list -R OWNER/REPO --status in_progress \
+  --json databaseId,status,headSha,url)
+printf '%s\n' "$cancel_targets" | jq .
 
-# Rerun all failed runs from today
-gh run list --status failure --created today --json databaseId -q '.[].databaseId' | \
-  xargs -I {} gh run rerun {}
+# Freeze failed runs separately for an authorized rerun
+rerun_targets=$(gh run list -R OWNER/REPO --status failure --created today \
+  --json databaseId,attempt,status,conclusion,headSha,url)
+printf '%s\n' "$rerun_targets" | jq .
 
-# Download artifacts from multiple runs
-gh run list --workflow=build --limit 5 --json databaseId -q '.[].databaseId' | \
-  xargs -I {} gh run download {}
+# Freeze completed build runs separately for artifact download
+artifact_targets=$(gh run list -R OWNER/REPO --workflow build --status success --limit 5 \
+  --json databaseId,status,conclusion,headSha,url)
+printf '%s\n' "$artifact_targets" | jq .
+
+# After this exact set is authorized, cancel and read back one at a time
+printf '%s\n' "$cancel_targets" | jq -r '.[].databaseId' | while read -r run_id; do
+  gh run cancel "$run_id" -R OWNER/REPO
+  gh run view "$run_id" -R OWNER/REPO \
+    --json databaseId,attempt,status,conclusion,headSha,url
+done
+
+# Rerun only the separately authorized failed-run set, then read the new attempt state
+printf '%s\n' "$rerun_targets" | jq -r '.[].databaseId' | while read -r run_id; do
+  gh run rerun "$run_id" -R OWNER/REPO
+  gh run view "$run_id" -R OWNER/REPO \
+    --json databaseId,attempt,status,conclusion,headSha,url
+done
+
+# Artifact download is read-only but uses completed build runs with unique destinations
+printf '%s\n' "$artifact_targets" | jq -r '.[].databaseId' | while read -r run_id; do
+  gh run download "$run_id" -R OWNER/REPO --dir "artifacts/$run_id"
+done
 ```
+
+If a workflow is not literally named `build`, replace that filter with the verified workflow file,
+name, or ID. A cancellation, rerun, and artifact download can concern different run populations;
+never reuse one frozen query merely because all three operations accept run IDs.
 
 ---
 
@@ -253,8 +288,8 @@ gh run list --workflow=build --limit 5 --json databaseId -q '.[].databaseId' | \
 # List repository secrets
 gh api repos/{owner}/{repo}/actions/secrets
 
-# Create/update secret
-gh secret set SECRET_NAME --body "secret-value"
+# Create/update secret through the hidden interactive prompt
+gh secret set SECRET_NAME
 
 # Create secret from file
 gh secret set SECRET_NAME < secret.txt
@@ -265,6 +300,10 @@ gh secret delete SECRET_NAME
 # List secrets
 gh secret list
 ```
+
+Do not place secret values in command arguments, shell history, logs, or documentation. Before a
+secret rotation, identify its consumers and rollback source. Afterward, verify secret metadata and
+one authorized consumer path; GitHub intentionally does not return the secret value.
 
 ### Managing Variables
 
@@ -325,7 +364,7 @@ gh run list --status failure --limit 10
 gh run view run-id --log-failed
 
 # Download logs for analysis
-gh run download run-id
+gh run view run-id --log > run-id.log
 
 # Rerun with debug logging
 gh run rerun run-id --debug
@@ -349,6 +388,11 @@ gh api repos/{owner}/{repo}/actions/runs/{run_id}/jobs | \
 ---
 
 ## Best Practices
+
+For overloaded CI email, exhausted allowance or unrelated/repeated jobs, first
+use [CI demand and notification delivery](ci-demand-and-notifications.md).
+The options below follow the repository's purpose and change risk; enabling
+every option is not a default operating policy.
 
 ### Workflow Organization
 
@@ -389,3 +433,209 @@ gh api repos/{owner}/{repo}/actions/runs/{run_id}/jobs | \
 3. **Metrics tracking** - Monitor success rates and duration
 4. **Log retention** - Configure appropriate retention policies
 5. **Dependency updates** - Automate with Dependabot
+
+## Self-Hosted Runner Capacity and Acceptance
+
+For a runner inventory, queued job or authorized capacity change, execute this
+sequence before creating registrations or changing workflow routing. This is an
+operator procedure; no bundled tool enforces its deployment or process boundaries.
+
+1. **Bind the scope and workload.** Read the target workflow at its exact commit,
+   including `runs-on`, runner groups and repository access. Inspect repository,
+   organization or enterprise registrations at their actual ownership scope.
+   Report registrations, physical hosts, online/busy state and job eligibility
+   separately. Multiple registrations or guests can share a host; label matching
+   does not prove independent CPU, memory or storage capacity. Match every required
+   label and group/access restriction ([GitHub routing rules](https://docs.github.com/en/actions/how-tos/manage-runners/self-hosted-runners/use-in-a-workflow)).
+   When no registration matches, inspect authorized owned hosts through their
+   deployment inventory. Reuse a compatible profile or prepare a separate one
+   within existing setup authorization; do not treat missing registration as
+   unavailable hardware or borrow another repository's production listener.
+2. **Reuse the deployment owner.** Locate the project's current IaC, runner
+   profiles and runbook, then read a successful run of the actual target job.
+   Preserve its supported OS, architecture, isolation, resource budget and network
+   configuration. A past success establishes that recorded job and runner only;
+   recheck current state before using it as available capacity. Keep private host
+   identities, paths and credentials in that project, outside this public Skill.
+3. **Prepare before registration.** Exercise required downloads, tool versions
+   and provider/package mirrors from the actual new runner environment and its
+   selected network path. A host-side request does not test a guest's path. Reuse
+   verified public binaries or images through the existing runbook, checking
+   digests/bytes and required completion markers; do not copy registration state,
+   job workspaces, cloud state or personal credentials. Missing downloads remain
+   failures; do not fabricate cache markers or add an unverified network fallback.
+   On persistent runners, provision system packages and browser OS dependencies
+   through the deployment owner before jobs, rather than running system APT
+   installation on every check. Keep tool/browser caches outside disposable job
+   workspaces and within the approved trust boundary; verify them as the service
+   account. A cache marker does not prove the matching executable works.
+
+   Check minutes and hosted artifact/storage budgets separately: changing
+   `runs-on` does not remove a workflow's GitHub upload/download dependencies
+   ([GitHub billing](https://docs.github.com/en/billing/concepts/product-billing/github-actions)).
+   If storage blocks required build handoff or evidence, preserve those outputs
+   through an already-authorized deployment-owner store, outside disposable
+   workspaces. Bind producer and consumer to repository, run ID/attempt and full SHA,
+   verify content hashes and actual downstream tests, and retain the owner's
+   retention/access contract. Do not silently drop outputs, ignore upload failures
+   or delete historical artifacts to make the migration pass.
+
+   Inventory optional cache backends separately from required artifacts.
+   `actions/cache` and BuildKit `type=gha` still call remote cache services on a
+   self-hosted runner ([Docker GitHub cache backend](https://docs.docker.com/build/cache/backends/gha/)).
+   Compare measured restore/export cost, hit rate and storage/network limits
+   with the existing persistent runner cache. Prefer that existing cache when
+   its ownership, keying and cleanup contract fit; do not add a second cache
+   merely because an action supports it. Preserve cold-cache correctness.
+   Only an explicitly optional cache may degrade on cache-only failure, with a
+   visible diagnostic; installation, tests, builds and required artifact handoff
+   retain their failure behavior. The deployment owner and job logs verify this
+   distinction; no bundled tool in this Skill chooses a cache backend.
+
+   Resolve the actual package-store directory as the job's service account after
+   setup, and keep the persistent store outside installation directories that
+   the selected setup action removes ([pnpm setup installer](https://github.com/pnpm/action-setup/blob/v4/src/install-pnpm/run.ts)).
+   Configure the same explicit store location in each consuming job. Accept
+   persistence from a later job's positive cache-hit evidence while preserving
+   installation and test checks; a configured path or existing directory alone
+   is not proof. A cold-cache miss still performs normal installation and checks.
+
+   For jobs running directly on a shared Linux runner host, use per-job service
+   containers with free host ports and read the assigned port from
+   `job.services.<service>.ports[<container-port>]`;
+   fixed host ports can collide across listeners ([GitHub service networking](https://docs.github.com/en/actions/tutorials/use-containerized-services/use-docker-service-containers)).
+   Read effective CPU, memory and task limits through the cgroup ancestors, not
+   only the listener unit. Parent limits constrain children ([cgroup v2](https://docs.kernel.org/admin-guide/cgroup-v2.html)).
+   Budget service and build containers created by a shared Docker daemon separately;
+   a listener's limit does not automatically cap those containers. Read back the
+   container/builder limits and reconcile their combined demand with the physical
+   host budget ([Docker resource constraints](https://docs.docker.com/engine/containers/resource_constraints/)).
+
+   Set test-worker concurrency from the effective CPU allocation, including
+   ancestor quota/period and cpuset/affinity bounds, rather than the host's
+   advertised core count or a runtime's parallelism default. Shared-parent
+   capacity is an upper bound, not an exclusive reservation. Use the existing
+   test runner's worker controls and verify the original suite under the real
+   service limits before increasing timeouts. Keep assertions and timeout
+   failure semantics; a lower worker count cannot excuse a genuine regression.
+   The repository executor owns worker settings; read cgroup/runtime observations
+   and actual suite results to accept the change.
+
+   Configure job hooks with the supported `.sh` or `.ps1` entry point: GitHub runs
+   Bash with `-e <path>` or PowerShell with `-command ". '<path>'"`. A Python
+   shebang is not a supported hook launcher; use an owned shell wrapper invoking
+   the intended interpreter. Keep hooks outside job-writable directories, bound
+   their synchronous work, and verify execution in the actual job's **Set up runner**
+   or **Complete runner** log. A direct script smoke test cannot prove the runner
+   invokes it ([GitHub job hooks](https://docs.github.com/en/actions/how-tos/manage-runners/self-hosted-runners/run-scripts)).
+4. **Keep checks and production routing separate.** Add capacity only to the
+   authorized workload. Preserve a production deployment's single-writer labels,
+   credentials and controller when expanding a checks pool. A new registration
+   does not authorize relabeling, stopping or restarting an existing listener,
+   another session's process or a shared service. Diagnose those read-only unless
+   the current task explicitly authorizes the exact affected process and impact.
+5. **Accept the actual job on the intended runner.** Read the run's exact SHA and
+   specific job's runner ID/name, labels, steps and terminal conclusion. Registration,
+   `online`, a network probe or another runner's successful job cannot establish
+   the new runner's capability. Reuse an existing matching run when available;
+   dispatch/rerun only within the task's authorization. For a parallel-capacity
+   claim, also verify overlapping actual job execution and host resource budgets.
+   On failure, read the failed job/step and that runner's current Worker diagnostics
+   before changing configuration. Report pending, offline, busy and failed states
+   separately; stop once the requested workload and capacity claim are evidenced.
+
+Use these read-only queries with verified repository/run identifiers:
+
+```bash
+gh api -X GET 'repos/OWNER/REPO/actions/runners?per_page=100' --paginate \
+  --jq '.runners[] | {id,name,status,busy,labels:[.labels[].name]}'
+gh run view RUN_ID -R OWNER/REPO --json status,conclusion,headSha,url
+gh api -X GET 'repos/OWNER/REPO/actions/runs/RUN_ID/jobs?per_page=100' --paginate \
+  --jq '.jobs[] | {id,name,conclusion,runner_id,runner_name,labels,steps}'
+```
+
+Expect explicit runner rows and the selected job's identity and result. An empty
+result does not establish available capacity; reconcile the scope/access and selector.
+Physical-host mapping and resource limits require the project's deployment inventory.
+
+## Self-Hosted Runner Mechanisms (job hooks & background tasks)
+
+Hard facts that bite any task running a **job hook** (`ACTIONS_RUNNER_HOOK_JOB_STARTED` /
+`ACTIONS_RUNNER_HOOK_JOB_COMPLETED`) or a **background process** on a self-hosted runner.
+All verified on a real macOS + Windows fleet (2026-09-20). These are GitHub platform
+behaviors, not fleet-specific config — read this before writing any runner hook / sampler /
+long-lived process.
+
+1. **Job hooks receive the default environment variables only — step-scoped ones are not
+   injected.** So `GITHUB_RUNNER_NAME` and `GITHUB_TOKEN` are **empty** in the
+   job-started/job-completed hook process. The design record says it outright: hooks "will
+   have access to the standard default environment variables", and variables that are "step
+   specific like `GITHUB_ACTION`" "will not be set" (`actions/runner`
+   [ADR 1751](https://github.com/actions/runner/blob/main/docs/adrs/1751-runner-job-hooks.md)).
+   Workarounds, both verified on a fleet: read the runner name from the runner-root `.runner`
+   file's `agentName` (cross-platform reliable), and pass a token by writing it to
+   `$RUNNER_TEMP/<file>` from an `if: always()` step at the end of the job (it runs after all
+   steps, before the Complete runner hook), deleting it after reading. **There is also no
+   timeout setting for either hook** — a hook that waits forever holds the job's *Set up
+   runner* / *Complete runner* step with it, so bound your own work with a watchdog timer and
+   per-call timeouts (source: [Running scripts before or after a
+   job](https://docs.github.com/actions/hosting-your-own-runners/running-scripts-before-or-after-a-job)).
+
+2. **Windows runners reap background processes via a per-job Job Object.** A background process
+   started with `Start-Process` from the job-started hook belongs to the runner's per-job Job
+   Object; when the hook returns, the runner tears that Job down and kills the child (observed:
+   sampler wrote 1 line then stopped, with an empty log — i.e. killed, not crashed). macOS
+   `nohup ... &` detaches from the process group and survives (a sampler ran the full build,
+   ~141 samples). Windows has **no nohup equivalent**: `CREATE_BREAKAWAY_FROM_JOB` via P/Invoke
+   is unreliable (struct marshalling gave err=123), and `schtasks` doesn't run tasks under a
+   headless SSH session. Reliable pattern: put anything that only needs to run *at job end*
+   (e.g. a resource snapshot) inside the collector itself (the job-completed hook runs reliably,
+   unaffected by the Job Object) rather than depending on a background process surviving the
+   whole build.
+
+3. **Windows platform traps.** ① `shell: bash` on a Windows runner resolves to the WSL launcher
+   `C:\WINDOWS\system32\bash.EXE`, which eats Windows backslash paths ("No such file") — always
+   use `shell: pwsh`, and for cross-platform steps use a `node -e` one-liner or split by
+   `runner.os`. ② `CreateProcess` (with `lpApplicationName=null`) does **not** search PATH — a
+   bare `powershell.exe` gives err=123 (ERROR_INVALID_NAME); pass a full path (`$PSHOME`). ③
+   PowerShell `$ErrorActionPreference='Stop'` turns the first transient error (e.g. a
+   `Get-Counter` hiccup) into a terminating error that exits a sampling loop after ~1 iteration —
+   use `Continue` + a per-tick try/catch. ④ Building JSON by string-concatenating in PowerShell
+   is a quoting minefield (`-replace '"',''''` is a parse error) — construct records with
+   `ConvertTo-Json`.
+
+## Purging Public Run History
+
+Deleting workflow runs does NOT remove every publicly visible trace. The anonymous-visible surfaces of a repository are: releases, tags, `actions/runs`, `deployments`, `actions/artifacts`, pull requests (closed PRs and their commit history are permanent), branches, and attestations.
+
+### Back Up Before Deleting (runs are unrecoverable)
+
+```bash
+# Full run metadata, then per-run logs + jobs
+gh api "repos/OWNER/REPO/actions/runs?per_page=100" --paginate > runs-all.json
+gh api "repos/OWNER/REPO/actions/runs/RUN_ID/logs" > RUN_ID.zip
+gh api "repos/OWNER/REPO/actions/runs/RUN_ID/jobs?per_page=100" --paginate > RUN_ID-jobs.json
+unzip -tq RUN_ID.zip   # verify archive integrity; a non-empty file is not proof
+```
+
+### Delete Runs, Then Their Deployment Records
+
+Environment deployment records are an independent state surface: they survive run deletion and stay anonymously visible via `/deployments` and the repo homepage Environments panel. Deletion is two-step (active deployments refuse direct DELETE):
+
+```bash
+gh api -X DELETE "repos/OWNER/REPO/actions/runs/RUN_ID"
+
+gh api -X POST "repos/OWNER/REPO/deployments/DEPLOY_ID/statuses" -f state=inactive
+gh api -X DELETE "repos/OWNER/REPO/deployments/DEPLOY_ID"
+```
+
+### Verify by Readback, Anonymously
+
+Transient API failures (`EOF`, SSL resets) make single exit codes unreliable — retry failures, then treat an unauthenticated readback as the only acceptance evidence:
+
+```bash
+curl -s "https://api.github.com/repos/OWNER/REPO/actions/runs?per_page=5" | jq .total_count
+curl -s "https://api.github.com/repos/OWNER/REPO/deployments" | jq length
+```
+
+Notes: artifacts die with their run; release attestations disappear from the API when their release is deleted (underlying Sigstore transparency-log entries are append-only and cannot be removed); environments themselves are configuration, not history — keep them if workflows reference them.

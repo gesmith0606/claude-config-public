@@ -27,8 +27,22 @@
 !/bootstrap.sh
 !/bootstrap.ps1
 
+# Skills owned by another repo. The obsidian-wiki repo ships its own wiki-* skill
+# family in ~/repos/obsidian-wiki/.skills/ (41 tracked files). If you ever link one
+# into ~/.claude/skills/ for global reach, it must NOT be tracked here — vendoring a
+# copy would create a second source of truth that silently drifts from upstream.
+#   ln -s ~/repos/obsidian-wiki/.skills/wiki-query ~/.claude/skills/wiki-query
+/skills/wiki-query/
+/skills/wiki-update/
+
 # Belt-and-suspenders: never track these even inside tracked dirs
 **/__pycache__/
 **/node_modules/
 **/*.log
 .credentials.json
+# Hand-written Claude Code mods: a folder marketplace (`claude plugin marketplace add ~/.claude/mods`).
+!/mods/
+mods/**/.claude-plugin/types/
+# Desktop-app managed skill cache (per account/session ids) and deleted-skill bin: never track.
+/skills/synced/
+/skills/.trash/
