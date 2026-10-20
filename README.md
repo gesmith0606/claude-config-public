@@ -58,8 +58,14 @@ it any time; on a machine that is already set up it reports everything present a
    - **`machine.json`** — copies `machine.example.json` → `machine.json` if absent and prompts for
      `knowledgeVaultPath`. The file is git-ignored and holds **per-machine paths** (optional:
      `preferredImageSaveDir`, `browserHarnessBrowserPath`, `browserHarnessProfileDir`).
-   - **Python venv** (macOS/Linux) — `~/.claude/.venv` with the `python` packages from
-     `scripts/dependencies.json`, recorded as `pythonPath`.
+   - **Python venv** — `~/.claude/.venv` with the `python` packages from
+     `scripts/dependencies.json`, recorded as `pythonPath` (Windows: created with `py -3`, so
+     `pythonPath` is `.venv\Scripts\python.exe`).
+   - **Bitwarden helpers** — `bwu` / `bwl` / `bwadd` / `bwcopy` / `ghpat` ship in
+     `scripts/bw-shell.sh`; one guarded `source` line is appended to `~/.zshrc` (macOS) or
+     `~/.bashrc` (Linux), skipped if that file already defines `bwu` inline. Windows dot-sources
+     `scripts\bw-shell.ps1` (`bwu` / `bwl` / `bwadd` / `ghpat`; no `bwcopy`) from the all-hosts
+     `profile.ps1` of both `pwsh` and Windows PowerShell.
    - **`PATH` + repo CLIs** — puts `~/.local/bin` on `PATH` for login shells (macOS: a guarded
      `case ":$PATH:"` line appended once to `~/.zprofile`) and links `~/.local/bin/yt` and
      `~/.local/bin/reddit` to `skills/youtube/bin/yt` and `skills/reddit/bin/reddit`. Windows adds
@@ -82,8 +88,8 @@ it any time; on a machine that is already set up it reports everything present a
    - `gcloud auth login` → `gws auth setup` → `gws auth status`. On Windows gcloud lands on the
      *user* PATH at `…\Google\Cloud SDK\google-cloud-sdk\bin`; terminals opened *before* install
      won't see it.
-   - `bw login`, then per shell `bwu` (or `export BW_SESSION="$(bw unlock --raw)"`; PowerShell:
-     `$env:BW_SESSION = (bw unlock --raw)`). API keys and PATs live only in Bitwarden and are
+   - `bw login`, then per shell `bwu` (zsh/bash and PowerShell alike, in a terminal opened after
+     bootstrap). API keys and PATs live only in Bitwarden and are
      resolved at run time by `scripts/resolve-secret.js` — see the `bitwarden` skill.
    - Optional, macOS: a Keychain copy of `GEMINI_API_KEY` so `yt` works without unlocking the vault
      (bootstrap prints the `security -i` command; the key goes over stdin, never argv).

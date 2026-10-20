@@ -7,6 +7,12 @@ $Dir     = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Example = Join-Path $Dir 'machine.example.json'
 $Machine = Join-Path $Dir 'machine.json'
 
+# Write machine.json as UTF-8 WITHOUT a BOM: Windows PowerShell 5.1's 'Set-Content -Encoding utf8'
+# adds one, and node's JSON.parse then fails, so claude-paths.js silently sees an empty config.
+function Write-MachineJson($obj) {
+  [IO.File]::WriteAllText($Machine, ($obj | ConvertTo-Json -Depth 10) + "`n")
+}
+
 Write-Host "==> Bootstrapping ~/.claude in $Dir"
 
 # 1. machine.json — copy from example only if absent (never clobber).
@@ -24,7 +30,7 @@ if ([string]::IsNullOrWhiteSpace($vault) -or $vault -eq '/absolute/path/to/knowl
   $answer = Read-Host "  Enter absolute path to your knowledge-vault (blank to skip)"
   if (-not [string]::IsNullOrWhiteSpace($answer)) {
     $cfg.knowledgeVaultPath = $answer
-    ($cfg | ConvertTo-Json -Depth 10) | Set-Content -Path $Machine -Encoding utf8
+    Write-MachineJson $cfg
     $vault = $answer
     Write-Host "  knowledgeVaultPath set to $vault"
   } else {
@@ -47,9 +53,36 @@ if ($node) {
   Write-Host "        all need it. winget install OpenJS.NodeJS, open a new terminal, re-run this script."
 }
 
-# python note (informational): bare 'python' on Windows is often the MS-Store stub.
-if (-not (Get-Command python3 -ErrorAction SilentlyContinue)) {
-  Write-Host "  NOTE: use 'py -3' (Windows) or 'python3'; avoid the bare 'python' Store stub."
+# 3b. Python venv for bundled skill scripts (docx/pptx/xlsx/pdf, image) - same as bootstrap.sh.
+#     Created with the 'py -3' launcher: bare 'python' on Windows is often the MS-Store stub.
+#     .venv is ignored by the top-level /* allowlist, so it never syncs.
+$venv  = Join-Path $Dir '.venv'
+$pyBin = Join-Path $venv 'Scripts\python.exe'
+if (Get-Command py -ErrorAction SilentlyContinue) {
+  if (-not (Test-Path $pyBin)) {
+    Write-Host "  Creating python venv at $venv..."
+    py -3 -m venv $venv
+    if ($LASTEXITCODE -ne 0) { Write-Host "  WARN: venv creation failed." }
+  }
+  if (Test-Path $pyBin) {
+    $pkgs = try { @((Get-Content (Join-Path $Dir 'scripts\dependencies.json') -Raw | ConvertFrom-Json).python | ForEach-Object { $_.package }) } catch { @('openpyxl', 'pypdf', 'Pillow') }
+    Write-Host "  Installing skill packages: $($pkgs -join ' ')"
+    # No stderr redirection: under 'Stop', Windows PowerShell 5.1 turns redirected native stderr into a terminating error.
+    & $pyBin -m pip install --quiet --disable-pip-version-check @pkgs
+    if ($LASTEXITCODE -ne 0) { Write-Host "  WARN: package install failed - re-run, or install manually into $venv." }
+    # Record the interpreter so skills/scripts resolve it via claude-paths.js.
+    $cfg = Get-Content $Machine -Raw | ConvertFrom-Json
+    if ($cfg.pythonPath -ne $pyBin) {
+      $cfg | Add-Member -Force -NotePropertyName pythonPath -NotePropertyValue $pyBin
+      Write-MachineJson $cfg
+      Write-Host "  machine.json: pythonPath set"
+    } else {
+      Write-Host "  machine.json: pythonPath already set"
+    }
+  }
+} else {
+  Write-Host "  WARN: 'py' launcher not found - bundled skill scripts (xlsx/pdf/image) will not run."
+  Write-Host "        winget install Python.Python.3.12, open a new terminal, re-run this script."
 }
 
 # 4. User PATH: ~/.local/bin plus the repo-shipped yt/reddit CLIs (their .cmd wrappers).
@@ -73,6 +106,21 @@ if ($added.Count) {
   Write-Host "  ok: user PATH has ~/.local/bin and the youtube/reddit skill bins"
 }
 foreach ($p in $wantPath) { if (@($env:Path -split ';') -notcontains $p) { $env:Path = "$p;$env:Path" } }
+
+# 4a. Bitwarden helpers (bwu/bwl/bwadd/ghpat) - functions, so they must be dot-sourced into each
+#     shell. One guarded line in the all-hosts profile of BOTH pwsh and Windows PowerShell 5.1
+#     (MyDocuments follows OneDrive folder redirection).
+$bwLine = ". '$((Join-Path $Dir 'scripts\bw-shell.ps1') -replace "'", "''")'"
+$docs   = [Environment]::GetFolderPath('MyDocuments')
+foreach ($prof in (Join-Path $docs 'PowerShell\profile.ps1'), (Join-Path $docs 'WindowsPowerShell\profile.ps1')) {
+  if ((Test-Path $prof) -and (Get-Content $prof) -contains $bwLine) {
+    Write-Host "  ok: Bitwarden helpers sourced from $prof"
+  } else {
+    New-Item -ItemType Directory -Force -Path (Split-Path $prof) | Out-Null
+    Add-Content -Path $prof -Value "`n# Bitwarden helpers: bwu, bwl, bwadd, ghpat (synced in ~/.claude/scripts).`n$bwLine"
+    Write-Host "  added Bitwarden helpers to $prof (new terminals pick them up)"
+  }
+}
 
 # winget/npm installs edit the Machine/User PATH; pull new entries into this process so later
 # installs (uv tool ... after uv) and the re-probe can see them.
@@ -152,7 +200,8 @@ Write-Host @'
 ==> Remaining per-machine steps (bootstrap cannot do these)
   [ ] GitHub:    gh auth login
   [ ] Google:    gcloud auth login  ;  gws auth setup  ;  gws auth status
-  [ ] Bitwarden: bw login   - then per shell: $env:BW_SESSION = (bw unlock --raw)
+  [ ] Bitwarden: bw login   - then per shell: bwu   (scripts\bw-shell.ps1, dot-sourced by your profile)
+      If the profile is blocked from loading, see: Get-Help about_Execution_Policies
   [ ] Open a NEW terminal (user PATH changes reach new terminals), confirm machine.json paths, then
       start Claude Code in any repo and check the statusline appears.
   Adding a NEW top-level file/dir to sync? Add a '!/name' line to .gitignore (allowlist model).

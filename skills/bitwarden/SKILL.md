@@ -108,7 +108,7 @@ rename — guessing would hand back the wrong credential, which is worse than fa
 | Symptom | Cause | Fix |
 |---|---|---|
 | `not found in any configured backend` | vault locked or logged out | `bwu` — the resolver names which on stderr |
-| `bwu: command not found` | shell predates the helper | `source ~/.zshrc` |
+| `bwu: command not found` | shell predates the helper, or bootstrap never ran | `source ~/.zshrc`; else re-run bootstrap (helpers live in `scripts/bw-shell.sh` / `.ps1`) |
 | Secret exists but will not resolve | item name ≠ secret name | rename the item, or `bw list items --search <term>` |
 | Nothing ever prompts for a password | nothing has needed the vault yet | the prompt comes from `bwu`, not from install or login |
 

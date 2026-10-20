@@ -99,6 +99,21 @@ else
   echo "  added ~/.local/bin to PATH in $PROFILE (new terminals pick it up)"
 fi
 case ":$PATH:" in *":$BIN:"*) ;; *) PATH="$BIN:$PATH"; export PATH ;; esac
+
+# 4a. Bitwarden shell helpers (bwu/bwl/bwadd/bwcopy/ghpat) — functions, so they must be
+#     sourced into interactive shells. One guarded line; skipped where the rc file still
+#     defines bwu inline (the pre-repo setup) so the two never double-define.
+RC="$HOME/.bashrc"; [ "$(uname)" = Darwin ] && RC="$HOME/.zshrc"
+BWLINE="[ -f \"$DIR/scripts/bw-shell.sh\" ] && . \"$DIR/scripts/bw-shell.sh\""
+if grep -qxF "$BWLINE" "$RC" 2>/dev/null; then
+  echo "  ok: Bitwarden helpers sourced from $RC"
+elif grep -q '^bwu()' "$RC" 2>/dev/null; then
+  echo "  ok: $RC defines bwu inline (to use the synced copy, replace that block with: $BWLINE)"
+else
+  printf '\n# Bitwarden helpers: bwu, bwl, bwadd, bwcopy, ghpat (synced in ~/.claude/scripts).\n%s\n' "$BWLINE" >> "$RC"
+  echo "  added Bitwarden helpers to $RC (new terminals pick them up)"
+fi
+
 link() { # link <target> <link>: create once, never clobber something else
   if [ "$(readlink "$2" 2>/dev/null || true)" = "$1" ]; then echo "  ok: $2 -> $1"
   elif [ -e "$2" ] || [ -L "$2" ]; then echo "  WARN: $2 exists and is not a link to $1 — leaving it"
@@ -209,9 +224,7 @@ cat <<'EOF'
 ==> Remaining per-machine steps (bootstrap cannot do these)
   [ ] GitHub:    gh auth login
   [ ] Google:    gcloud auth login  &&  gws auth setup  &&  gws auth status
-  [ ] Bitwarden: bw login   — then per shell: bwu
-                 (bwu is a shell function in ~/.zshrc, not synced by this repo; without it:
-                  export BW_SESSION="$(bw unlock --raw)")
+  [ ] Bitwarden: bw login   — then per shell: bwu   (scripts/bw-shell.sh, sourced by your rc file)
   [ ] macOS, optional: Keychain copy of the Gemini key so `yt` runs without bwu (vault unlocked;
       the key goes over stdin, never argv):
         printf 'add-generic-password -U -a "%s" -s GEMINI_API_KEY -w "%s"\n' "$USER" \
