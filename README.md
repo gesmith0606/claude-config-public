@@ -43,25 +43,53 @@ Belt-and-suspenders rules at the bottom of `.gitignore` (`__pycache__`, `node_mo
 
 ## Per-machine setup checklist
 
+The goal is **clone → bootstrap → log in**, and every skill works. Bootstrap is idempotent: re-run
+it any time; on a machine that is already set up it reports everything present and changes nothing.
+
+0. **Prerequisites:** `git` and **node** (bootstrap's helpers run on it), plus the platform package
+   manager — **Homebrew** on macOS, **winget** on Windows.
 1. **Clone into `~/.claude`** (back up any existing one first):
    `git clone <repo> ~/.claude`
 2. **Run the bootstrap** from inside `~/.claude`:
    - macOS/Linux: `sh bootstrap.sh`
    - Windows: `pwsh -File bootstrap.ps1` (or `powershell -File bootstrap.ps1`)
-3. **Create `machine.json`** — bootstrap copies `machine.example.json` → `machine.json` if absent.
-   This file is git-ignored and holds **per-machine paths**. Set at minimum `knowledgeVaultPath` to
-   the absolute path of your knowledge-vault clone on *this* box. Optional: `preferredImageSaveDir`,
-   `browserHarnessBrowserPath`, `browserHarnessProfileDir`.
-4. **Ensure these are on `PATH`** (bootstrap warns if missing):
-   - **node** — skills/scripts and the statusline run on it.
-   - **gws** — `npm i -g @googleworkspace/cli`; auth via `gcloud auth login` → `gws auth setup`.
-   - **gcloud** — Google Cloud SDK. On Windows it installs to the *user* PATH at
-     `…\Google\Cloud SDK\google-cloud-sdk\bin`; terminals opened *before* install won't see it —
-     open a fresh one or prepend it.
-   - **Optional CLIs** (not required; `scripts/detect-capabilities.js` probes them and skills
-     degrade gracefully when absent): **uv** (Python runtime/tooling), **duckdb** + **sqlite3**
-     (local analytical SQL), **pandoc** + **tesseract** (document/OCR skills). Install the ones a
-     workflow needs, then re-run `node scripts/detect-capabilities.js` to refresh the manifest.
+
+   It does, in order:
+   - **`machine.json`** — copies `machine.example.json` → `machine.json` if absent and prompts for
+     `knowledgeVaultPath`. The file is git-ignored and holds **per-machine paths** (optional:
+     `preferredImageSaveDir`, `browserHarnessBrowserPath`, `browserHarnessProfileDir`).
+   - **Python venv** (macOS/Linux) — `~/.claude/.venv` with the `python` packages from
+     `scripts/dependencies.json`, recorded as `pythonPath`.
+   - **`PATH` + repo CLIs** — puts `~/.local/bin` on `PATH` for login shells (macOS: a guarded
+     `case ":$PATH:"` line appended once to `~/.zprofile`) and links `~/.local/bin/yt` and
+     `~/.local/bin/reddit` to `skills/youtube/bin/yt` and `skills/reddit/bin/reddit`. Windows adds
+     `~\.local\bin`, `skills\youtube\bin` and `skills\reddit\bin` (the `.cmd` wrappers) to the
+     *user* PATH. Existing files that are not those links are left alone.
+   - **Missing CLIs** — probes everything in `scripts/dependencies.json` (`detect-capabilities.js`)
+     and lists what is absent. Hints that are a plain `brew` / `winget` / `uv tool` / `npm` command
+     are offered in **one y/N prompt**; the rest (e.g. Xcode CLT, gcloud and poppler on Windows) are
+     printed as manual steps. Add a dependency in `dependencies.json`, never in the bootstrap.
+   - **ArtCraft CLIs** (optional) — macOS: if `photocraft-cli` / `filmcraft-cli` / `pdfcraft-cli`
+     are missing and `gh` is logged in, a separate y/N downloads each
+     `<app>-cli-<ver>-macos-universal.zip` from the `storytold/<app>` latest release, checks it
+     against the release's sha256 digest, and installs it to `~/.local/bin`; with
+     `/Applications/PdfCraft.app` present it links `~/.local/share/pdfcraft/models` to the app's
+     models. Windows: reports whether `C:\Program Files\<App>\<app>-cli.exe` exists (the ArtCraft
+     Launcher / MSI installs them; the skills find them there).
+   - **Health check** (`scripts/health-check.js`), then a checklist of what it cannot do for you.
+3. **Log in** (per machine, by hand — bootstrap prints this list):
+   - `gh auth login` (then re-run bootstrap if you skipped ArtCraft for lack of it)
+   - `gcloud auth login` → `gws auth setup` → `gws auth status`. On Windows gcloud lands on the
+     *user* PATH at `…\Google\Cloud SDK\google-cloud-sdk\bin`; terminals opened *before* install
+     won't see it.
+   - `bw login`, then per shell `bwu` (or `export BW_SESSION="$(bw unlock --raw)"`; PowerShell:
+     `$env:BW_SESSION = (bw unlock --raw)`). API keys and PATs live only in Bitwarden and are
+     resolved at run time by `scripts/resolve-secret.js` — see the `bitwarden` skill.
+   - Optional, macOS: a Keychain copy of `GEMINI_API_KEY` so `yt` works without unlocking the vault
+     (bootstrap prints the `security -i` command; the key goes over stdin, never argv).
+   - Open a **new terminal** so the `PATH` changes apply.
+4. **Optional CLIs degrade gracefully** — skills that need an absent CLI say so. Install later
+   and re-run bootstrap (or `node scripts/detect-capabilities.js`) to refresh the manifest.
 5. **Windows `python` gotcha:** the bare `python` command is often the MS-Store *stub* that opens the
    Store instead of running Python. Use **`py -3`** (Windows) or **`python3`** (cross-platform);
    never assume bare `python`.

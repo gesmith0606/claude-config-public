@@ -50,6 +50,22 @@ function installHint(dep) {
   return i[process.platform] || i.default || "see dependencies.json";
 }
 
+// `--missing-installs`: machine-readable feed for bootstrap.sh / bootstrap.ps1, so neither
+// keeps its own tool list. One "auto|manual<TAB>name<TAB>hint" line per declared CLI the
+// manifest marks absent (run detect-capabilities.js first). "auto" = the hint is a bare
+// package-manager command bootstrap may run after asking; prose, arrows, parens stay manual.
+if (process.argv.includes("--missing-installs")) {
+  let tools = {};
+  try { tools = JSON.parse(readIf(path.join(HOME, "machine.json"))).capabilities.tools || {}; } catch { /* none */ }
+  for (const dep of DEPS.clis) {
+    if (!tools[dep.name] || tools[dep.name].present) continue;
+    const hint = installHint(dep);
+    const auto = /^(brew|winget|uv tool|npm) [^;()<>|]*$/.test(hint);
+    console.log(`${auto ? "auto" : "manual"}\t${dep.name}\t${hint}`);
+  }
+  process.exit(0);
+}
+
 let failures = 0;
 let warnings = 0;
 const lines = [];
